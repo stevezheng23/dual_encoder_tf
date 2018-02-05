@@ -1,2 +1,2 @@
-# dual_encoder_tf
+# Dual Encoder
 Dual Encoder model in Tensorflow
