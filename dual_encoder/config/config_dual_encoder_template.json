@@ -1,0 +1,177 @@
+{
+    "data": {
+        "src_train_file": "",
+        "trg_train_file": "",
+        "src_eval_file": "",
+        "trg_eval_file": "",
+        "src_char_vocab_file": "",
+        "trg_char_vocab_file": "",
+        "src_subword_vocab_file": "",
+        "trg_subword_vocab_file": "",
+        "src_word_vocab_file": "",
+        "trg_word_vocab_file": "",
+        "src_embedding_file": "",
+        "trg_embedding_file": "",
+        "src_full_embedding_file": "",
+        "trg_full_embedding_file": "",
+        "src_vocab_size": 30000,
+        "trg_vocab_size": 30000,
+        "src_max_length": 50,
+        "trg_max_length": 50,
+        "share_vocab": false,
+        "log_output_dir": "output/log",
+        "result_output_dir": "output/result"
+    },
+    "train": {
+        "random_seed": 100,
+        "batch_size": 128,
+        "eval_batch_size": 256,
+        "eval_metric": "precision",
+        "num_epoch": 3,
+        "ckpt_output_dir": "output/checkpoint",
+        "summary_output_dir": "output/summary",
+        "step_per_stat": 10,
+        "step_per_ckpt": 100,
+        "step_per_eval": 100,
+        "clip_norm": 5.0,
+        "optimizer": {
+            "type": "adam",
+            "learning_rate": 0.001,
+            "adam_beta_1": 0.9,
+            "adam_beta_2": 0.999,
+            "adam_epsilon": 1e-08
+        }
+    },
+    "model": {
+        "type": "default",
+        "scope": "dual_encoder",
+        "src_encoder": {
+            "char_embed_layer": [
+                {
+                    "layer_type": "conv",
+                    "embed_dim": 100,
+                    "window_size": 3,
+                    "activation": "relu",
+                    "dropout": 0.1
+                },
+                {
+                    "layer_type": "pool",
+                    "pooling_type": "max"
+                }
+            ],
+            "subword_embed_layer": [
+                {
+                    "layer_type": "conv",
+                    "embed_dim": 100,
+                    "window_size": 3,
+                    "activation": "relu",
+                    "dropout": 0.1
+                },
+                {
+                    "layer_type": "pool",
+                    "pooling_type": "max"
+                }
+            ],
+            "word_embed_layer": {
+                "pretrained_embedding": true,
+                "embed_dim": 300
+            },
+            "cove_embed_layer": {
+                "pretrained_embedding": true,
+                "embed_dim": 300,
+                "layer_type": "bi_rnn",
+                "num_layer": 1,
+                "unit_dim": 512,
+                "unit_type": "lstm",
+                "activation": "tanh",
+                "dropout": 0.1
+            },
+            "semantic_embed_layer": [
+                {
+                    "layer_type": "bi_rnn",
+                    "unit_dim": 512,
+                    "unit_type": "lstm",
+                    "activation": "tanh",
+                    "dropout": 0.1
+                },
+                {
+                    "layer_type": "bi_rnn",
+                    "unit_dim": 512,
+                    "unit_type": "lstm",
+                    "activation": "tanh",
+                    "dropout": 0.1
+                }
+            ]
+        },
+        "trg_encoder": {
+            "char_embed_layer": [
+                {
+                    "layer_type": "conv",
+                    "embed_dim": 100,
+                    "window_size": 3,
+                    "activation": "relu",
+                    "dropout": 0.1
+                },
+                {
+                    "layer_type": "pool",
+                    "pooling_type": "max"
+                }
+            ],
+            "subword_embed_layer": [
+                {
+                    "layer_type": "conv",
+                    "embed_dim": 100,
+                    "window_size": 3,
+                    "activation": "relu",
+                    "dropout": 0.1
+                },
+                {
+                    "layer_type": "pool",
+                    "pooling_type": "max"
+                }
+            ],
+            "word_embed_layer": {
+                "pretrained_embedding": true,
+                "embed_dim": 300
+            },
+            "cove_embed_layer": {
+                "pretrained_embedding": true,
+                "embed_dim": 300,
+                "layer_type": "bi_rnn",
+                "num_layer": 1,
+                "unit_dim": 512,
+                "unit_type": "lstm",
+                "activation": "tanh",
+                "dropout": 0.1
+            },
+            "semantic_embed_layer": [
+                {
+                    "layer_type": "bi_rnn",
+                    "unit_dim": 512,
+                    "unit_type": "lstm",
+                    "activation": "tanh",
+                    "dropout": 0.1
+                },
+                {
+                    "layer_type": "bi_rnn",
+                    "unit_dim": 512,
+                    "unit_type": "lstm",
+                    "activation": "tanh",
+                    "dropout": 0.1
+                }
+            ]
+        },
+        "task_runner": {
+            "task_type": "similarity",
+            "loss_type": "log_loss"
+        }
+    },
+    "device": {
+        "num_gpus": 1,
+        "default_gpu_id": 0,
+        "log_device_placement": false,
+        "allow_soft_placement": true,
+        "allow_growth": false,
+        "per_process_gpu_memory_fraction": 0.95
+    }
+}
