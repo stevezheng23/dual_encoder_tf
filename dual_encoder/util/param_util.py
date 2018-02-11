@@ -79,7 +79,8 @@ def create_default_hyperparams():
                         embed_dim=100,
                         window_size=3,
                         activation="relu",
-                        dropout=0.1
+                        dropout=0.1,
+                        enable_update=True
                     ),
                     tf.contrib.training.HParams(
                         layer_type="pool",
@@ -93,7 +94,8 @@ def create_default_hyperparams():
                         embed_dim=100,
                         window_size=3,
                         activation="relu",
-                        dropout=0.1
+                        dropout=0.1,
+                        enable_update=True
                     ),
                     tf.contrib.training.HParams(
                         layer_type="pool",
@@ -117,7 +119,7 @@ def create_default_hyperparams():
                     residual_connect=False,
                     forget_bias=1.0,
                     dropout=0.1
-                )
+                ),
                 """create source semantic embed layer hyperparameters"""
                 semantic_embed_layer=[
                     tf.contrib.training.HParams(
@@ -127,7 +129,8 @@ def create_default_hyperparams():
                         activation="tanh",
                         residual_connect=False,
                         forget_bias=1.0,
-                        dropout=0.1
+                        dropout=0.1,
+                        enable_update=True
                     ),
                     tf.contrib.training.HParams(
                         layer_type="bi_rnn",
@@ -136,7 +139,8 @@ def create_default_hyperparams():
                         activation="tanh",
                         residual_connect=False,
                         forget_bias=1.0,
-                        dropout=0.1
+                        dropout=0.1,
+                        enable_update=True
                     )
                 ]
             ),
@@ -149,7 +153,8 @@ def create_default_hyperparams():
                         embed_dim=100,
                         window_size=3,
                         activation="relu",
-                        dropout=0.1
+                        dropout=0.1,
+                        enable_update=True
                     ),
                     tf.contrib.training.HParams(
                         layer_type="pool",
@@ -163,7 +168,8 @@ def create_default_hyperparams():
                         embed_dim=100,
                         window_size=3,
                         activation="relu",
-                        dropout=0.1
+                        dropout=0.1,
+                        enable_update=True
                     ),
                     tf.contrib.training.HParams(
                         layer_type="pool",
@@ -187,7 +193,7 @@ def create_default_hyperparams():
                     residual_connect=False,
                     forget_bias=1.0,
                     dropout=0.1
-                )
+                ),
                 """create target semantic embed layer hyperparameters"""
                 semantic_embed_layer=[
                     tf.contrib.training.HParams(
@@ -197,7 +203,8 @@ def create_default_hyperparams():
                         activation="tanh",
                         residual_connect=False,
                         forget_bias=1.0,
-                        dropout=0.1
+                        dropout=0.1,
+                        enable_update=True
                     ),
                     tf.contrib.training.HParams(
                         layer_type="bi_rnn",
@@ -206,9 +213,18 @@ def create_default_hyperparams():
                         activation="tanh",
                         residual_connect=False,
                         forget_bias=1.0,
-                        dropout=0.1
+                        dropout=0.1,
+                        enable_update=True
                     )
                 ]
+            ),
+            """create weight sharing hyperparameters"""
+            weight_sharing=tf.contrib.training.HParams(
+                share_char_embed=False,
+                share_subword_embed=False,
+                share_word_embed=False,
+                share_cove_embed=False,
+                share_semantic_embed=False
             ),
             """create task runner hyperparameters"""
             task_runner=tf.contrib.training.HParams(
