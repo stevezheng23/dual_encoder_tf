@@ -46,120 +46,250 @@
         "type": "default",
         "scope": "dual_encoder",
         "src_encoder": {
-            "char_embed_layer": [
-                {
-                    "layer_type": "conv",
-                    "embed_dim": 100,
-                    "window_size": 3,
-                    "activation": "relu",
-                    "dropout": 0.1
-                },
-                {
-                    "layer_type": "pool",
-                    "pooling_type": "max"
-                }
-            ],
-            "subword_embed_layer": [
-                {
-                    "layer_type": "conv",
-                    "embed_dim": 100,
-                    "window_size": 3,
-                    "activation": "relu",
-                    "dropout": 0.1
-                },
-                {
-                    "layer_type": "pool",
-                    "pooling_type": "max"
-                }
-            ],
+            "char_embed_layer": {
+                "layer_type": "sequence",
+                "sub_layers": [
+                    {
+                        "layer_type": "conv",
+                        "unit_dim": 100,
+                        "window_size": 3,
+                        "activation": "relu",
+                        "dropout": 0.1,
+                        "is_trainable": true
+                    },
+                    {
+                        "layer_type": "pool",
+                        "pooling_type": "max"
+                    }
+                ]
+            },
+            "subword_embed_layer": {
+                "layer_type": "sequence",
+                "sub_layers": [
+                    {
+                        "layer_type": "conv",
+                        "unit_dim": 100,
+                        "window_size": 3,
+                        "activation": "relu",
+                        "dropout": 0.1,
+                        "is_trainable": true
+                    },
+                    {
+                        "layer_type": "pool",
+                        "pooling_type": "max"
+                    }
+                ]
+            },
             "word_embed_layer": {
-                "pretrained_embedding": true,
-                "embed_dim": 300
+                "layer_type": "sequence",
+                "sub_layers": [
+                    {
+                        "layer_type": "pretrain",
+                        "unit_dim": 300,
+                        "is_trainable": false
+                    },
+                    {
+                        "layer_type": "parallel",
+                        "sub_layers": [
+                            {
+                                "layer_type": "sequence",
+                                "sub_layers": [
+                                    {
+                                        "layer_type": "conv",
+                                        "unit_dim": 100,
+                                        "window_size": 3,
+                                        "activation": "relu",
+                                        "dropout": 0.1,
+                                        "is_trainable": true
+                                    },
+                                    {
+                                        "layer_type": "pool",
+                                        "pooling_type": "max"
+                                    }
+                                ]
+                            },
+                            {
+                                "layer_type": "sequence",
+                                "sub_layers": [
+                                    {
+                                        "layer_type": "conv",
+                                        "unit_dim": 100,
+                                        "window_size": 5,
+                                        "activation": "relu",
+                                        "dropout": 0.1,
+                                        "is_trainable": true
+                                    },
+                                    {
+                                        "layer_type": "pool",
+                                        "pooling_type": "max"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
             },
-            "cove_embed_layer": {
-                "pretrained_embedding": true,
-                "embed_dim": 300,
-                "layer_type": "bi_rnn",
-                "num_layer": 1,
-                "unit_dim": 512,
-                "unit_type": "lstm",
-                "activation": "tanh",
-                "dropout": 0.1
-            },
-            "semantic_embed_layer": [
-                {
-                    "layer_type": "bi_rnn",
-                    "unit_dim": 512,
-                    "unit_type": "lstm",
-                    "activation": "tanh",
-                    "dropout": 0.1
-                },
-                {
-                    "layer_type": "bi_rnn",
-                    "unit_dim": 512,
-                    "unit_type": "lstm",
-                    "activation": "tanh",
-                    "dropout": 0.1
-                }
-            ]
+            "semantic_embed_layer": {
+                "layer_type": "sequence",
+                "sub_layers": [
+                    {
+                        "layer_type": "bi_rnn",
+                        "unit_dim": 512,
+                        "unit_type": "lstm",
+                        "activation": "tanh",
+                        "dropout": 0.1,
+                        "is_trainable": true
+                    },
+                    {
+                        "layer_type": "attention",
+                        "unit_dim": 128,
+                        "score_type": "bahdanau",
+                        "attend_on": "",
+                        "is_trainable": true
+                    },
+                    {
+                        "layer_type": "bi_rnn",
+                        "unit_dim": 512,
+                        "unit_type": "lstm",
+                        "activation": "tanh",
+                        "dropout": 0.1,
+                        "is_trainable": true
+                    },
+                    {
+                        "layer_type": "attention",
+                        "unit_dim": 128,
+                        "score_type": "bahdanau",
+                        "attend_on": "",
+                        "is_trainable": true
+                    }
+                ]
+            }
         },
         "trg_encoder": {
-            "char_embed_layer": [
-                {
-                    "layer_type": "conv",
-                    "embed_dim": 100,
-                    "window_size": 3,
-                    "activation": "relu",
-                    "dropout": 0.1
-                },
-                {
-                    "layer_type": "pool",
-                    "pooling_type": "max"
-                }
-            ],
-            "subword_embed_layer": [
-                {
-                    "layer_type": "conv",
-                    "embed_dim": 100,
-                    "window_size": 3,
-                    "activation": "relu",
-                    "dropout": 0.1
-                },
-                {
-                    "layer_type": "pool",
-                    "pooling_type": "max"
-                }
-            ],
+            "char_embed_layer": {
+                "layer_type": "sequence",
+                "sub_layers": [
+                    {
+                        "layer_type": "conv",
+                        "unit_dim": 100,
+                        "window_size": 3,
+                        "activation": "relu",
+                        "dropout": 0.1,
+                        "is_trainable": true
+                    },
+                    {
+                        "layer_type": "pool",
+                        "pooling_type": "max"
+                    }
+                ]
+            },
+            "subword_embed_layer": {
+                "layer_type": "sequence",
+                "sub_layers": [
+                    {
+                        "layer_type": "conv",
+                        "unit_dim": 100,
+                        "window_size": 3,
+                        "activation": "relu",
+                        "dropout": 0.1,
+                        "is_trainable": true
+                    },
+                    {
+                        "layer_type": "pool",
+                        "pooling_type": "max"
+                    }
+                ]
+            },
             "word_embed_layer": {
-                "pretrained_embedding": true,
-                "embed_dim": 300
+                "layer_type": "sequence",
+                "sub_layers": [
+                    {
+                        "layer_type": "pretrain",
+                        "unit_dim": 300,
+                        "is_trainable": false
+                    },
+                    {
+                        "layer_type": "parallel",
+                        "sub_layers": [
+                            {
+                                "layer_type": "sequence",
+                                "sub_layers": [
+                                    {
+                                        "layer_type": "conv",
+                                        "unit_dim": 100,
+                                        "window_size": 3,
+                                        "activation": "relu",
+                                        "dropout": 0.1,
+                                        "is_trainable": true
+                                    },
+                                    {
+                                        "layer_type": "pool",
+                                        "pooling_type": "max"
+                                    }
+                                ]
+                            },
+                            {
+                                "layer_type": "sequence",
+                                "sub_layers": [
+                                    {
+                                        "layer_type": "conv",
+                                        "unit_dim": 100,
+                                        "window_size": 5,
+                                        "activation": "relu",
+                                        "dropout": 0.1,
+                                        "is_trainable": true
+                                    },
+                                    {
+                                        "layer_type": "pool",
+                                        "pooling_type": "max"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
             },
-            "cove_embed_layer": {
-                "pretrained_embedding": true,
-                "embed_dim": 300,
-                "layer_type": "bi_rnn",
-                "num_layer": 1,
-                "unit_dim": 512,
-                "unit_type": "lstm",
-                "activation": "tanh",
-                "dropout": 0.1
-            },
-            "semantic_embed_layer": [
-                {
-                    "layer_type": "bi_rnn",
-                    "unit_dim": 512,
-                    "unit_type": "lstm",
-                    "activation": "tanh",
-                    "dropout": 0.1
-                },
-                {
-                    "layer_type": "bi_rnn",
-                    "unit_dim": 512,
-                    "unit_type": "lstm",
-                    "activation": "tanh",
-                    "dropout": 0.1
-                }
-            ]
+            "semantic_embed_layer": {
+                "layer_type": "sequence",
+                "sub_layers": [
+                    {
+                        "layer_type": "bi_rnn",
+                        "unit_dim": 512,
+                        "unit_type": "lstm",
+                        "activation": "tanh",
+                        "dropout": 0.1,
+                        "is_trainable": true
+                    },
+                    {
+                        "layer_type": "attention",
+                        "unit_dim": 128,
+                        "score_type": "bahdanau",
+                        "attend_on": "",
+                        "is_trainable": true
+                    },
+                    {
+                        "layer_type": "bi_rnn",
+                        "unit_dim": 512,
+                        "unit_type": "lstm",
+                        "activation": "tanh",
+                        "dropout": 0.1,
+                        "is_trainable": true
+                    },
+                    {
+                        "layer_type": "attention",
+                        "unit_dim": 128,
+                        "score_type": "bahdanau",
+                        "attend_on": "",
+                        "is_trainable": true
+                    }
+                ]
+            }
+        },
+        "weight_sharing": {
+            "share_char_embed": false,
+            "share_subword_embed": false,
+            "share_word_embed": false,
+            "share_semantic_embed": false
         },
         "task_runner": {
             "task_type": "similarity",
