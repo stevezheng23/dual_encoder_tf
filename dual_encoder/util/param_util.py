@@ -1,355 +1,163 @@
+import codecs
+import json
+
 import numpy as np
 import tensorflow as tf
 
-__all__ = ["create_default_hyperparams"]
+__all__ = ["load_hyperparams", "override_hyperparams", "create_default_hyperparams"]
+
+def load_hyperparams(config_file):
+    """load hyperparameters from config file"""
+    if tf.gfile.Exists(config_file):
+        with codecs.getreader("utf-8")(tf.gfile.GFile(config_file, "rb")) as file:
+            hyperparams = create_default_hyperparams()
+            hyperparams_override = json.load(file)
+            hyperparams = override_hyperparams(hyperparams, hyperparams_override)
+            
+            return hyperparams
+    else:
+        raise FileNotFoundError("config file not found")
+
+def override_hyperparams(hyperparams,
+                         hyperparams_override):
+    if (hyperparams is None or hyperparams_override is None):
+        raise ValueError("objects not exist")
+    
+    if (type(hyperparams) != type(hyperparams_override)):
+        raise TypeError("objects have different type")
+    
+    if isinstance(hyperparams, dict):
+        for key in hyperparams_override.keys():
+            if (key not in hyperparams or hyperparams[key] is None):
+                hyperparams[key] = hyperparams_override[key]
+            else:
+                hyperparams[key] = override_hyperparams(hyperparams[key], hyperparams_override[key])
+    else:
+        hyperparams = hyperparams_override
+    
+    return hyperparams
 
 def create_default_hyperparams():
-    """create default hyperparameters"""   
-    hyperparams = tf.contrib.training.HParams(
-        """create data hyperparameters"""
-        data=tf.contrib.training.HParams(
-            src_train_file="",
-            trg_train_file="",
-            src_eval_file="",
-            trg_eval_file="",
-            src_char_vocab_file="",
-            trg_char_vocab_file="",
-            src_subword_vocab_file="",
-            trg_subword_vocab_file="",
-            src_word_vocab_file="",
-            trg_word_vocab_file="",
-            src_embedding_file="",
-            trg_embedding_file="",
-            src_full_embedding_file="",
-            trg_full_embedding_file="",
-            src_vocab_size=30000,
-            trg_vocab_size=30000,
-            src_max_length=50,
-            trg_max_length=50,
-            share_vocab=False,
-            sos="<sos>",
-            eos="<eos>",
-            pad="<pad>",
-            unk="<unk>",
-            log_output_dir="",
-            result_output_dir=""
-        ),
-        """create train hyperparameters"""
-        train=tf.contrib.training.HParams(
-            random_seed=0,
-            batch_size=128,
-            eval_batch_size=1024,
-            eval_metric="precision",
-            num_epoch=20,
-            ckpt_output_dir="",
-            summary_output_dir="",
-            step_per_stat=10,
-            step_per_ckpt=100,
-            step_per_eval=100,
-            clip_norm=5.0,
-            """create optimizer hyperparameters"""
-            optimizer=tf.contrib.training.HParams(
-                type="adam",
-                learning_rate=0.001,
-                decay_mode="exponential_decay",
-                decay_rate=0.95,
-                decay_step=1000,
-                decay_start_step=10000,
-                momentum_beta=0.9,
-                rmsprop_beta=0.999,
-                rmsprop_epsilon=1e-8,
-                adadelta_rho=0.95,
-                adadelta_epsilon=1e-8,
-                adagrad_init_accumulator=0.1,
-                adam_beta_1=0.9,
-                adam_beta_2=0.999,
-                adam_epsilon=1e-08
-            )
-        ),
-        """create model hyperparameters"""
-        model=tf.contrib.training.HParams(
-            type="default",
-            scope="dual_encoder",
-            """create source encoder hyperparameters"""
-            src_encoder=tf.contrib.training.HParams(
-                """create source char-level embed layer hyperparameters"""
-                char_embed_layer=tf.contrib.training.HParams(
-                    layer_type="sequence",
-                    sub_layers=[
-                        tf.contrib.training.HParams(
-                            layer_type="conv",
-                            unit_dim=100,
-                            window_size=3,
-                            activation="relu",
-                            dropout=0.1,
-                            is_trainable=True
-                        ),
-                        tf.contrib.training.HParams(
-                            layer_type="pool",
-                            pooling_type="max"
-                        )
+    hyperparams = {
+        "data": {
+            "src_train_file": "",
+            "trg_train_file": "",
+            "src_eval_file": "",
+            "trg_eval_file": "",
+            "src_char_vocab_file": "",
+            "trg_char_vocab_file": "",
+            "src_subword_vocab_file": "",
+            "trg_subword_vocab_file": "",
+            "src_word_vocab_file": "",
+            "trg_word_vocab_file": "",
+            "src_embedding_file": "",
+            "trg_embedding_file": "",
+            "src_full_embedding_file": "",
+            "trg_full_embedding_file": "",
+            "src_vocab_size": 30000,
+            "trg_vocab_size": 30000,
+            "src_max_length": 50,
+            "trg_max_length": 50,
+            "share_vocab": False,
+            "log_output_dir": "output/log",
+            "result_output_dir": "output/result"
+        },
+        "train": {
+            "random_seed": 100,
+            "batch_size": 128,
+            "eval_batch_size": 256,
+            "eval_metric": "precision",
+            "num_epoch": 3,
+            "ckpt_output_dir": "output/checkpoint",
+            "summary_output_dir": "output/summary",
+            "step_per_stat": 10,
+            "step_per_ckpt": 100,
+            "step_per_eval": 100,
+            "clip_norm": 5.0,
+            "optimizer": {
+                "type": "adam",
+                "learning_rate": 0.001,
+                "adam_beta_1": 0.9,
+                "adam_beta_2": 0.999,
+                "adam_epsilon": 1e-08
+            }
+        },
+        "model": {
+            "type": "default",
+            "scope": "dual_encoder",
+            "src_encoder": {
+                "char_embed_layer": None,
+                "subword_embed_layer": None,
+                "word_embed_layer": {
+                    "layer_type": "sequence",
+                    "sub_layers": [
+                        {
+                            "layer_type": "pretrain",
+                            "unit_dim": 300,
+                            "is_trainable": False
+                        }
                     ]
-                ),
-                """create source subword-level embed layer hyperparameters"""
-                subword_embed_layer=tf.contrib.training.HParams(
-                    layer_type="sequence",
-                    sub_layers=[
-                        tf.contrib.training.HParams(
-                            layer_type="conv",
-                            unit_dim=100,
-                            window_size=3,
-                            activation="relu",
-                            dropout=0.1,
-                            is_trainable=True
-                        ),
-                        tf.contrib.training.HParams(
-                            layer_type="pool",
-                            pooling_type="max"
-                        )
+                },
+                "semantic_embed_layer": {
+                    "layer_type": "sequence",
+                    "sub_layers": [
+                        {
+                            "layer_type": "bi_rnn",
+                            "unit_dim": 512,
+                            "unit_type": "lstm",
+                            "activation": "tanh",
+                            "dropout": 0.1,
+                            "is_trainable": True
+                        }
                     ]
-                ),
-                """create source word-level embed layer hyperparameters"""
-                word_embed_layer=tf.contrib.training.HParams(
-                    layer_type="sequence",
-                    sub_layers=[
-                        tf.contrib.training.HParams(
-                            layer_type="pretrain",
-                            unit_dim=300,
-                            is_trainable=False
-                        ),
-                        tf.contrib.training.HParams(
-                            layer_type="parallel",
-                            sub_layers=[
-                                tf.contrib.training.HParams(
-                                    layer_type="sequence",
-                                    sub_layers=[
-                                        tf.contrib.training.HParams(
-                                            layer_type="conv",
-                                            unit_dim=100,
-                                            window_size=3,
-                                            activation="relu",
-                                            dropout=0.1,
-                                            is_trainable=True
-                                        ),
-                                        tf.contrib.training.HParams(
-                                            layer_type="pool",
-                                            pooling_type="max"
-                                        )
-                                    ]
-                                ),
-                                tf.contrib.training.HParams(
-                                    layer_type="sequence",
-                                    sub_layers=[
-                                        tf.contrib.training.HParams(
-                                            layer_type="conv",
-                                            unit_dim=100,
-                                            window_size=3,
-                                            activation="relu",
-                                            dropout=0.1,
-                                            is_trainable=True
-                                        ),
-                                        tf.contrib.training.HParams(
-                                            layer_type="pool",
-                                            pooling_type="max"
-                                        )
-                                    ]
-                                )
-                            ]
-                        ),
+                }
+            },
+            "trg_encoder": {
+                "char_embed_layer": None,
+                "subword_embed_layer": None,
+                "word_embed_layer": {
+                    "layer_type": "sequence",
+                    "sub_layers": [
+                        {
+                            "layer_type": "pretrain",
+                            "unit_dim": 300,
+                            "is_trainable": False
+                        }
                     ]
-                ),
-                """create source semantic embed layer hyperparameters"""
-                semantic_embed_layer=tf.contrib.training.HParams(
-                    layer_type="sequence",
-                    sub_layers=[
-                        tf.contrib.training.HParams(
-                            layer_type="bi_rnn",
-                            unit_dim=512,
-                            unit_type="lstm",
-                            activation="tanh",
-                            residual_connect=False,
-                            forget_bias=1.0,
-                            dropout=0.1,
-                            is_trainable=True
-                        ),
-                        tf.contrib.training.HParams(
-                            layer_type="attention",
-                            unit_dim=128,
-                            score_type="bahdanau",
-                            attention="",
-                            is_trainable=True
-                        ),
-                        tf.contrib.training.HParams(
-                            layer_type="bi_rnn",
-                            unit_dim=512,
-                            unit_type="lstm",
-                            activation="tanh",
-                            residual_connect=False,
-                            forget_bias=1.0,
-                            dropout=0.1,
-                            is_trainable=True
-                        )
-                        tf.contrib.training.HParams(
-                            layer_type="attention",
-                            unit_dim=128,
-                            score_type="bahdanau",
-                            attention="",
-                            is_trainable=True
-                        )
+                },
+                "semantic_embed_layer": {
+                    "layer_type": "sequence",
+                    "sub_layers": [
+                        {
+                            "layer_type": "bi_rnn",
+                            "unit_dim": 512,
+                            "unit_type": "lstm",
+                            "activation": "tanh",
+                            "dropout": 0.1,
+                            "is_trainable": True
+                        }
                     ]
-                )
-            ),
-            """create target encoder hyperparameters"""
-            trg_encoder=tf.contrib.training.HParams(
-                """create target char-level embed layer hyperparameters"""
-                char_embed_layer=tf.contrib.training.HParams(
-                    layer_type="sequence",
-                    sub_layers=[
-                        tf.contrib.training.HParams(
-                            layer_type="conv",
-                            unit_dim=100,
-                            window_size=3,
-                            activation="relu",
-                            dropout=0.1,
-                            is_trainable=True
-                        ),
-                        tf.contrib.training.HParams(
-                            layer_type="pool",
-                            pooling_type="max"
-                        )
-                    ]
-                ),
-                """create target subword-level embed layer hyperparameters"""
-                subword_embed_layer=tf.contrib.training.HParams(
-                    layer_type="sequence",
-                    sub_layers=[
-                        tf.contrib.training.HParams(
-                            layer_type="conv",
-                            unit_dim=100,
-                            window_size=3,
-                            activation="relu",
-                            dropout=0.1,
-                            is_trainable=True
-                        ),
-                        tf.contrib.training.HParams(
-                            layer_type="pool",
-                            pooling_type="max"
-                        )
-                    ]
-                ),
-                """create target word-level embed layer hyperparameters"""
-                word_embed_layer=tf.contrib.training.HParams(
-                    layer_type="sequence",
-                    sub_layers=[
-                        tf.contrib.training.HParams(
-                            layer_type="pretrain",
-                            unit_dim=300,
-                            is_trainable=False
-                        ),
-                        tf.contrib.training.HParams(
-                            layer_type="parallel",
-                            sub_layers=[
-                                tf.contrib.training.HParams(
-                                    layer_type="sequence",
-                                    sub_layers=[
-                                        tf.contrib.training.HParams(
-                                            layer_type="conv",
-                                            unit_dim=100,
-                                            window_size=3,
-                                            activation="relu",
-                                            dropout=0.1,
-                                            is_trainable=True
-                                        ),
-                                        tf.contrib.training.HParams(
-                                            layer_type="pool",
-                                            pooling_type="max"
-                                        )
-                                    ]
-                                ),
-                                tf.contrib.training.HParams(
-                                    layer_type="sequence",
-                                    sub_layers=[
-                                        tf.contrib.training.HParams(
-                                            layer_type="conv",
-                                            unit_dim=100,
-                                            window_size=3,
-                                            activation="relu",
-                                            dropout=0.1,
-                                            is_trainable=True
-                                        ),
-                                        tf.contrib.training.HParams(
-                                            layer_type="pool",
-                                            pooling_type="max"
-                                        )
-                                    ]
-                                )
-                            ]
-                        ),
-                    ]
-                ),
-                """create target semantic embed layer hyperparameters"""
-                semantic_embed_layer=tf.contrib.training.HParams(
-                    layer_type="sequence",
-                    sub_layers=[
-                        tf.contrib.training.HParams(
-                            layer_type="bi_rnn",
-                            unit_dim=512,
-                            unit_type="lstm",
-                            activation="tanh",
-                            residual_connect=False,
-                            forget_bias=1.0,
-                            dropout=0.1,
-                            is_trainable=True
-                        ),
-                        tf.contrib.training.HParams(
-                            layer_type="attention",
-                            unit_dim=128,
-                            score_type="bahdanau",
-                            attention="",
-                            is_trainable=True
-                        ),
-                        tf.contrib.training.HParams(
-                            layer_type="bi_rnn",
-                            unit_dim=512,
-                            unit_type="lstm",
-                            activation="tanh",
-                            residual_connect=False,
-                            forget_bias=1.0,
-                            dropout=0.1,
-                            is_trainable=True
-                        )
-                        tf.contrib.training.HParams(
-                            layer_type="attention",
-                            unit_dim=128,
-                            score_type="bahdanau",
-                            attention="",
-                            is_trainable=True
-                        )
-                    ]
-                )
-            ),
-            """create weight sharing hyperparameters"""
-            weight_sharing=tf.contrib.training.HParams(
-                share_char_embed=False,
-                share_subword_embed=False,
-                share_word_embed=False,
-                share_semantic_embed=False
-            ),
-            """create task runner hyperparameters"""
-            task_runner=tf.contrib.training.HParams(
-                task_type="similarity",
-                loss_type="log_loss"
-            )
-        ),
-        """create device hyperparameters"""
-        device=tf.contrib.training.HParams(
-            num_gpus=1,
-            default_gpu_id=0,
-            log_device_placement=False,
-            allow_soft_placement=False,
-            allow_growth=False,
-            per_process_gpu_memory_fraction=0.95
-        )
-    )
+                }
+            },
+            "weight_sharing": {
+                "share_char_embed": False,
+                "share_subword_embed": False,
+                "share_word_embed": False,
+                "share_semantic_embed": False
+            },
+            "task_runner": {
+                "task_type": "similarity",
+                "loss_type": "log_loss"
+            }
+        },
+        "device": {
+            "num_gpus": 1,
+            "default_gpu_id": 0,
+            "log_device_placement": False,
+            "allow_soft_placement": True,
+            "allow_growth": False,
+            "per_process_gpu_memory_fraction": 0.95
+        }
+    }
     
     return hyperparams
