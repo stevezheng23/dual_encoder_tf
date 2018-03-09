@@ -1,2 +1,2 @@
 # Dual Encoder
-Dual Encoder model in Tensorflow
+Dual-Encoder model in Tensorflow
