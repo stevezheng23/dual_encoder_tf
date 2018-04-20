@@ -5,72 +5,58 @@ import os.path
 import numpy as np
 import tensorflow as tf
 
-__all__ = ["DataPipeline", "create_data_pipeline", "create_input_dataset",
+__all__ = ["DataPipeline", "create_data_pipeline",
            "create_embedding_file", "load_embedding_file", "convert_embedding",
-           "create_vocab_table", "process_vocab_table", "create_vocab_file", "load_vocab_file",
-           "update_word_vocab", "update_subword_vocab", "update_char_vocab",
-           "load_input_data", "prepare_data"]
+           "create_vocab_table", "create_vocab_file", "load_vocab_file",
+           "process_word", "process_subword", "process_char",
+           "process_input_data", "load_input_data", "prepare_data"]
 
 class DataPipeline(collections.namedtuple("DataPipeline",
-    ("initializer", "source_input_word", "target_input_word", "source_input_subword", "target_input_subword",
-     "source_input_char", "target_input_char", "source_input_word_mask", "target_input_word_mask",
-     "source_input_subword_mask", "target_input_subword_mask", "source_input_char_mask","target_input_char_mask",
-     "input_data_placeholder", "batch_size_placeholder"))):
+    ("initializer", "input_word_feat", "input_subword_feat", "input_char_feat",
+     "input_word_mask", "input_subword_mask", "input_char_mask",
+     "word_feat_placeholder", "subword_feat_placeholder", "char_feat_placeholder"))):
     pass
 
-def create_data_pipeline(input_src_dataset,
-                         input_trg_dataset,
-                         output_label_dataset,
+def create_data_pipeline(word_vocab_index,
+                         subword_vocab_index,
+                         char_vocab_index,
+                         word_pad,
+                         subword_pad,
+                         char_pad,
                          batch_size,
-                         random_seed,
-                         enable_shuffle):
-    """create data pipeline for dual encoder"""
+                         random_seed):
+    """create data pipeline for word/subword/char-level representation"""
     word_pad_id = tf.cast(word_vocab_index.lookup(tf.constant(word_pad)), tf.int32)
     subword_pad_id = tf.cast(subword_vocab_index.lookup(tf.constant(subword_pad)), tf.int32)
     char_pad_id = tf.cast(char_vocab_index.lookup(tf.constant(char_pad)), tf.int32)
     
-    dataset = tf.data.Dataset.zip((input_src_dataset, input_trg_dataset, output_dataset))
-    
-    if enable_shuffle == True:
-        buffer_size = batch_size * 1000
-        dataset = dataset.shuffle(buffer_size, random_seed)
+    word_feat_placeholder = tf.placeholder(shape=[None, None], dtype=tf.string)
+    subword_feat_placeholder = tf.placeholder(shape=[None, None, None], dtype=tf.string)
+    char_feat_placeholder = tf.placeholder(shape=[None, None, None], dtype=tf.string)
 
-    src_dataset = dataset.padded_batch(
-        batch_size=batch_size,
-        padded_shapes=(
-            tf.TensorShape([None]),
-            tf.TensorShape([None]),
-            tf.TensorShape([None]),
-            tf.TensorShape([None]),
-            tf.TensorShape([None]),
-            tf.TensorShape([None]),
-            tf.TensorShape([None])),
-        padding_values=(
-            word_pad_id,
-            word_pad_id,
-            subword_pad_id,
-            subword_pad_id,
-            char_pad_id,
-            char_pad_id,
-            word_pad_id))
-        
+    word_feat_dataset = tf.data.Dataset.from_tensor_slices(word_feat_placeholder)
+    subword_feat_dataset = tf.data.Dataset.from_tensor_slices(subword_feat_placeholder)
+    char_feat_dataset = tf.data.Dataset.from_tensor_slices(char_feat_placeholder)
+    dataset = tf.data.Dataset.zip((word_feat_dataset, subword_feat_dataset, char_feat_dataset))
+    
+    buffer_size = batch_size * 1000
+    dataset = dataset.shuffle(buffer_size, random_seed)
+    
+    dataset = dataset.map(lambda word_feat, subword_feat, char_feat: (tf.cast(word_vocab_index.lookup(word_feat), tf.int32),
+        tf.cast(subword_vocab_index.lookup(subword_feat), tf.int32), tf.cast(char_vocab_index.lookup(char_feat), tf.int32)))
+    dataset = dataset.map(lambda word_feat, subword_feat, char_feat: (word_feat, subword_feat, char_feat,
+        tf.not_equal(word_feat, word_pad_id), tf.not_equal(subword_feat, subword_pad_id), tf.not_equal(char_feat, char_pad_id)))
+    
+    dataset = dataset.batch(batch_size=batch_size)
+    
     iterator = dataset.make_initializable_iterator()
-    (src_word_input, trg_word_input, src_subword_input, trg_subword_input,
-     src_char_input, trg_char_input, label_word_output) = iterator.get_next()
+    (input_word_feat, input_subword_feat, input_char_feat, input_word_mask,
+        input_subword_mask, input_char_mask) = iterator.get_next()
     
-def create_input_dataset(input_file,
-                         word_vocab_index,
-                         subword_vocab_index,
-                         char_vocab_index,
-                         word_pad,
-                         word_sos,
-                         word_eos,
-                         subword_pad,
-                         char_pad):
-    """create word/subword/char-level dataset for input data"""
-    dataset = tf.data.TextLineDataset([input_file])
-    
-    return dataset
+    return DataPipeline(initializer=iterator.initializer, input_word_feat=input_word_feat,
+        input_subword_feat=input_subword_feat, input_char_feat=input_char_feat, input_word_mask=input_word_mask, 
+        input_subword_mask=input_subword_mask, input_char_mask=input_char_mask, word_feat_placeholder=word_feat_placeholder,
+        subword_feat_placeholder=subword_feat_placeholder, char_feat_placeholder=char_feat_placeholder)
 
 def create_embedding_file(embedding_file,
                           embedding_table):
@@ -126,35 +112,14 @@ def convert_embedding(embedding_lookup):
     
     return embedding
 
-def create_vocab_table(input_data,
-                       input_size,
-                       word_feat_enable,
-                       subword_feat_enable,
-                       subword_size,
-                       char_feat_enable):
-    """create vocab from input data"""
-    word_vocab = {}
-    subword_vocab = {}
-    char_vocab = {}
-    for sentence in input_data:
-        words = sentence.strip().split(' ')
-        if word_feat_enable is True:
-            update_word_vocab(words, word_vocab)
-        if subword_feat_enable is True:
-            update_subword_vocab(words, subword_size, subword_vocab)
-        if char_feat_enable is True:
-            update_char_vocab(words, char_vocab)
-    
-    return word_vocab, subword_vocab, char_vocab
-
-def process_vocab_table(vocab,
-                        vocab_size,
-                        vocab_lookup,
-                        unk,
-                        pad,
-                        sos,
-                        eos):
-    """process vocab table"""
+def create_vocab_table(vocab,
+                       vocab_size,
+                       vocab_lookup,
+                       unk,
+                       pad,
+                       sos,
+                       eos):
+    """create vocab table from vocab data"""
     default_vocab = []
     if unk in vocab:
         del vocab[unk]
@@ -215,49 +180,127 @@ def load_vocab_file(vocab_file):
     else:
         raise FileNotFoundError("vocab file not found")
 
-def update_word_vocab(words,
-                      word_vocab):
-    """update word vocab from words"""
+def process_word(words,
+                 word_max_length,
+                 word_pad,
+                 word_sos,
+                 word_eos,
+                 word_vocab):
+    """process words for sentence"""
     for word in words:
         if word not in word_vocab:
             word_vocab[word] = 1
         else:
             word_vocab[word] += 1
-
-def update_subword_vocab(words,
-                         subword_size,
-                         subword_vocab):
-    """update subword vocab from words"""
-    def generate_subword(word,
-                         subword_size):
-        """generate subword for word"""
-        subwords = []
-        chars = list(word)
-        char_length = len(chars)
-        for i in range(char_length-subword_size+1):
-            subword =  ''.join(chars[i:i+subword_size])
-            subwords.append(subword)
-        
-        return subwords
     
-    for word in words:
-        subwords = generate_subword(word, subword_size)
-        for subword in subwords:
-            if subword not in subword_vocab:
-                subword_vocab[subword] = 1
-            else:
-                subword_vocab[subword] += 1
+    word_feat = np.full((word_max_length+2), word_pad)
+    words = [word_sos] + words[:word_max_length] + [word_eos]
+    word_length = len(words)
+    word_feat[:word_length] = words
+    return word_feat
 
-def update_char_vocab(words,
-                      char_vocab):
-    """update char vocab from words"""
-    for word in words:
+def generate_subword(word,
+                     subword_size):
+    """generate subword for word"""
+    subwords = []
+    chars = list(word)
+    char_length = len(chars)
+    for i in range(char_length-subword_size+1):
+        subword =  ''.join(chars[i:i+subword_size])
+        subwords.append(subword)
+    
+    return subwords
+
+def process_subword(words,
+                    word_max_length,
+                    subword_max_length,
+                    word_sos,
+                    word_eos,
+                    subword_pad,
+                    subword_size,
+                    subword_vocab):
+    """process subwords for sentence"""    
+    subword_feat = np.full((word_max_length+2, subword_max_length), subword_pad)
+    words = [word_sos] + words[:word_max_length] + [word_eos]
+    word_length = len(words)
+    for i, word in enumerate(words):
+        subwords = generate_subword(word, subword_size)
+        if i > 0 and i < word_length-1:
+            for subword in subwords:
+                if subword not in subword_vocab:
+                    subword_vocab[subword] = 1
+                else:
+                    subword_vocab[subword] += 1
+        
+        subwords = subwords[:subword_max_length]
+        subword_length = len(subwords)
+        subword_feat[i,:subword_length] = subwords
+    
+    return subword_feat
+
+def process_char(words,
+                 word_max_length,
+                 char_max_length,
+                 word_sos,
+                 word_eos,
+                 char_pad,
+                 char_vocab):
+    """process characters for sentence"""       
+    char_feat = np.full((word_max_length+2, char_max_length), char_pad)
+    words = [word_sos] + words[:word_max_length] + [word_eos]
+    word_length = len(words)
+    for i, word in enumerate(words):
         chars = list(word)
-        for ch in chars:
-            if ch not in char_vocab:
-                char_vocab[ch] = 1
-            else:
-                char_vocab[ch] += 1
+        if i > 0 and i < word_length-1:
+            for ch in chars:
+                if ch not in char_vocab:
+                    char_vocab[ch] = 1
+                else:
+                    char_vocab[ch] += 1
+        
+        chars = chars[:char_max_length]
+        char_length = len(chars)
+        char_feat[i,:char_length] = chars
+    
+    return char_feat
+
+def process_input_data(input_data,
+                       input_size,
+                       word_max_length,
+                       word_feat_enable,
+                       word_pad,
+                       word_sos,
+                       word_eos,
+                       subword_max_length,
+                       subword_feat_enable,
+                       subword_pad,
+                       subword_size,
+                       char_max_length,
+                       char_feat_enable,
+                       char_pad):
+    """process input data for featurization"""
+    word_feat_data = np.full((input_size, word_max_length+2), word_pad)
+    subword_feat_data = np.full((input_size, word_max_length+2, subword_max_length), subword_pad)
+    char_feat_data = np.full((input_size, word_max_length+2, char_max_length), char_pad)
+    word_vocab = {}
+    subword_vocab = {}
+    char_vocab = {}
+    for i, sentence in enumerate(input_data):
+        words = sentence.strip().split(' ')
+        if word_feat_enable is True:
+            word_feat = process_word(words, word_max_length,
+                word_pad, word_sos, word_eos, word_vocab)
+            word_feat_data[i,:] = word_feat
+        if subword_feat_enable is True:
+            subword_feat = process_subword(words, word_max_length, subword_max_length,
+                word_sos, word_eos, subword_pad, subword_size, subword_vocab)
+            subword_feat_data[i,:,:] = subword_feat
+        if char_feat_enable is True:
+            char_feat = process_char(words, word_max_length, char_max_length,
+                word_sos, word_eos, char_pad, char_vocab)
+            char_feat_data[i,:,:] = char_feat
+    
+    return word_feat_data, subword_feat_data, char_feat_data, word_vocab, subword_vocab, char_vocab
 
 def load_input_data(input_file):
     """load input data from input file"""
@@ -308,12 +351,17 @@ def prepare_data(logger,
         input_data, input_size = load_input_data(input_file)
         logger.log_print("# input data has {0} lines".format(input_size))
     
+    word_feat_data = None
+    subword_feat_data = None
+    char_feat_data = None
     word_vocab = None
     subword_vocab = None
     char_vocab = None
     if input_data is not None:
-        word_vocab, subword_vocab, char_vocab = create_vocab_table(input_data, input_size,
-            word_feat_enable, subword_feat_enable, subword_size, char_feat_enable)
+        (word_feat_data, subword_feat_data, char_feat_data, word_vocab,
+            subword_vocab, char_vocab) = process_input_data(input_data, input_size, word_max_length,
+            word_feat_enable, word_pad, word_sos, word_eos, subword_max_length, subword_feat_enable,
+            subword_pad, subword_size, char_max_length, char_feat_enable, char_pad)
     
     word_embed_data = None
     if pretrain_word_embed == True:
@@ -336,12 +384,12 @@ def prepare_data(logger,
             logger.log_print("# loading word vocab table from {0}".format(word_vocab_file))
             word_vocab = load_vocab_file(word_vocab_file)
             (word_vocab_table, word_vocab_size, word_vocab_index,
-                word_vocab_inverted_index) = process_vocab_table(word_vocab,
+                word_vocab_inverted_index) = create_vocab_table(word_vocab,
                 word_vocab_size, word_embed_data, word_unk, word_pad, word_sos, word_eos)
         elif word_vocab is not None:
             logger.log_print("# creating word vocab table from {0}".format(input_file))
             (word_vocab_table, word_vocab_size, word_vocab_index,
-                word_vocab_inverted_index) = process_vocab_table(word_vocab,
+                word_vocab_inverted_index) = create_vocab_table(word_vocab,
                 word_vocab_size, word_embed_data, word_unk, word_pad, word_sos, word_eos)
             logger.log_print("# creating word vocab file {0}".format(word_vocab_file))
             create_vocab_file(word_vocab_file, word_vocab_table)
@@ -355,12 +403,12 @@ def prepare_data(logger,
             logger.log_print("# loading subword vocab table from {0}".format(subword_vocab_file))
             subword_vocab = load_vocab_file(subword_vocab_file)
             (subword_vocab_table, subword_vocab_size, subword_vocab_index,
-                subword_vocab_inverted_index) = process_vocab_table(subword_vocab,
+                subword_vocab_inverted_index) = create_vocab_table(subword_vocab,
                 subword_vocab_size, None, subword_unk, subword_pad, None, None)
         elif subword_vocab is not None:
             logger.log_print("# creating subword vocab table from {0}".format(input_file))
             (subword_vocab_table, subword_vocab_size, subword_vocab_index,
-                subword_vocab_inverted_index) = process_vocab_table(subword_vocab,
+                subword_vocab_inverted_index) = create_vocab_table(subword_vocab,
                 subword_vocab_size, None, subword_unk, subword_pad, None, None)
             logger.log_print("# creating subword vocab file {0}".format(subword_vocab_file))
             create_vocab_file(subword_vocab_file, subword_vocab_table)
@@ -374,12 +422,12 @@ def prepare_data(logger,
             logger.log_print("# loading char vocab table from {0}".format(char_vocab_file))
             char_vocab = load_vocab_file(char_vocab_file)
             (char_vocab_table, char_vocab_size, char_vocab_index,
-                char_vocab_inverted_index) = process_vocab_table(char_vocab,
+                char_vocab_inverted_index) = create_vocab_table(char_vocab,
                 char_vocab_size, None, char_unk, char_pad, None, None)
         elif char_vocab is not None:
             logger.log_print("# creating char vocab table from {0}".format(input_file))
             (char_vocab_table, char_vocab_size, char_vocab_index,
-                char_vocab_inverted_index) = process_vocab_table(char_vocab,
+                char_vocab_inverted_index) = create_vocab_table(char_vocab,
                 char_vocab_size, None, char_unk, char_pad, None, None)
             logger.log_print("# creating char vocab file {0}".format(char_vocab_file))
             create_vocab_file(char_vocab_file, char_vocab_table)
@@ -397,7 +445,7 @@ def prepare_data(logger,
         
         word_embed_data = convert_embedding(word_embed_data)
     
-    return (input_data, word_embed_data,
+    return (word_feat_data, subword_feat_data, char_feat_data, word_embed_data,
         word_vocab_size, word_vocab_index, word_vocab_inverted_index,
         subword_vocab_size, subword_vocab_index, subword_vocab_inverted_index,
         char_vocab_size, char_vocab_index, char_vocab_inverted_index)
