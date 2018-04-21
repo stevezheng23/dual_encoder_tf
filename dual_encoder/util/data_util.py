@@ -5,7 +5,8 @@ import os.path
 import numpy as np
 import tensorflow as tf
 
-__all__ = ["DataPipeline", "create_data_pipeline", "create_input_dataset",
+__all__ = ["DataPipeline", "create_data_pipeline", "create_input_dataset", "create_output_dataset",
+           "generate_word_feat", "generate_subword_feat", "generate_char_feat",
            "create_embedding_file", "load_embedding_file", "convert_embedding",
            "create_vocab_table", "process_vocab_table", "create_vocab_file", "load_vocab_file",
            "update_word_vocab", "update_subword_vocab", "update_char_vocab",
@@ -68,9 +69,94 @@ def create_input_dataset(input_file,
                          subword_pad,
                          char_pad):
     """create word/subword/char-level dataset for input data"""
+    word_pad_id = word_vocab_index.lookup(tf.constant(word_pad))
+    word_sos_id = word_vocab_index.lookup(tf.constant(word_sos))
+    word_sos_id = word_vocab_index.lookup(tf.constant(word_eos))
+    subword_pad_id = subword_vocab_index.lookup(tf.constant(subword_pad))
+    char_pad_id = char_vocab_index.lookup(tf.constant(char_pad))
+    
     dataset = tf.data.TextLineDataset([input_file])
+    dataset = dataset.map(lambda sent: generate_word_feat(sent),
+        generate_subword_feat(sent), generate_char_feat(sent))
     
     return dataset
+
+def create_output_dataset(output_file,
+                          word_vocab_index,
+                          word_pad,
+                          word_sos,
+                          word_eos:
+    """create word/subword/char-level dataset for output data"""
+    word_pad_id = word_vocab_index.lookup(tf.constant(word_pad))
+    word_sos_id = word_vocab_index.lookup(tf.constant(word_sos))
+    word_sos_id = word_vocab_index.lookup(tf.constant(word_eos))
+    
+    dataset = tf.data.TextLineDataset([output_file])
+    dataset = dataset.map(lambda sent: generate_word_feat(sent))
+    
+    return dataset
+
+def generate_word_feat(sentence,
+                       word_max_length,
+                       word_sos,
+                       word_eos):
+    """process words for sentence"""
+    words = tf.string_split([sentence], delimiter=' ').values
+    words = tf.concat([[word_sos], words[:word_max_length], [word_eos]], 0)
+    
+    return words
+
+def generate_subword_feat(sentence,
+                          subword_vocab_index,
+                          word_max_length,
+                          subword_max_length,
+                          word_sos,
+                          word_eos,
+                          subword_pad_id):
+    """generate char feature for sentence"""
+    def word_to_subword(word):
+        """process subwords for word"""
+        subwords = tf.string_split([word], delimiter='').values
+        subwords = subwords[:subword_max_length]
+        subwords = subword_vocab_index.lookup(subwords)
+        padding = tf.constant([[0, subword_max_length]])
+        subwords = tf.pad(subwords, padding, "CONSTANT", constant_values=subword_pad_id)
+        subwords = subwords[:subword_max_length]
+        
+        return subwords
+    
+    """process words for sentence"""
+    words = tf.string_split([sentence], delimiter=' ').values
+    words = tf.concat([[word_sos], words[:word_max_length], [word_eos]], 0)
+    word_subwords = tf.map_fn(word_to_subword, words, dtype=tf.int64)
+    
+    return word_subwords
+
+def generate_char_feat(sentence,
+                       char_vocab_index,
+                       word_max_length,
+                       char_max_length,
+                       word_sos,
+                       word_eos,
+                       char_pad_id):
+    """generate char feature for sentence"""
+    def word_to_char(word):
+        """process characters for word"""
+        chars = tf.string_split([word], delimiter='').values
+        chars = chars[:char_max_length]
+        chars = char_vocab_index.lookup(chars)
+        padding = tf.constant([[0, char_max_length]])
+        chars = tf.pad(chars, padding, "CONSTANT", constant_values=char_pad_id)
+        chars = chars[:char_max_length]
+        
+        return chars
+    
+    """process words for sentence"""
+    words = tf.string_split([sentence], delimiter=' ').values
+    words = tf.concat([[word_sos], words[:word_max_length], [word_eos]], 0)
+    word_chars = tf.map_fn(word_to_char, words, dtype=tf.int64)
+    
+    return word_chars
 
 def create_embedding_file(embedding_file,
                           embedding_table):
