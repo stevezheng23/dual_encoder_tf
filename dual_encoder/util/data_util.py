@@ -74,30 +74,23 @@ def create_input_dataset(input_file,
                          char_pad):
     """create word/subword/char-level dataset for input data"""
     word_pad_id = word_vocab_index.lookup(tf.constant(word_pad))
-    word_sos_id = word_vocab_index.lookup(tf.constant(word_sos))
-    word_eos_id = word_vocab_index.lookup(tf.constant(word_eos))
     subword_pad_id = subword_vocab_index.lookup(tf.constant(subword_pad))
     char_pad_id = char_vocab_index.lookup(tf.constant(char_pad))
     
     dataset = tf.data.TextLineDataset([input_file])
-    dataset = dataset.map(lambda sent: generate_word_feat(sent, word_vocab_index,
-        word_max_length, word_sos, word_eos), generate_subword_feat(sent, subword_vocab_index,
-        word_max_length, subword_max_length, subword_size, word_sos, word_eos, word_pad_id),
-        generate_char_feat(sent, char_vocab_index, word_max_length, char_max_length, word_sos, word_eos, char_pad_id))
+    dataset = dataset.map(lambda sent: (generate_word_feat(sent, word_vocab_index, word_max_length, word_sos, word_eos),
+        generate_subword_feat(sent, subword_vocab_index, word_max_length, subword_max_length, subword_size,
+                              word_sos, word_eos, word_pad_id),
+        generate_char_feat(sent, char_vocab_index, word_max_length, char_max_length, word_sos, word_eos, char_pad_id)))
     
     return dataset
 
 def create_output_dataset(output_file,
                           word_vocab_index,
                           word_max_length,
-                          word_pad,
                           word_sos,
-                          word_eos:
+                          word_eos):
     """create word/subword/char-level dataset for output data"""
-    word_pad_id = word_vocab_index.lookup(tf.constant(word_pad))
-    word_sos_id = word_vocab_index.lookup(tf.constant(word_sos))
-    word_sos_id = word_vocab_index.lookup(tf.constant(word_eos))
-    
     dataset = tf.data.TextLineDataset([output_file])
     dataset = dataset.map(lambda sent: generate_word_feat(sent, word_vocab_index,
         word_max_length, word_sos, word_eos))
@@ -115,7 +108,8 @@ def generate_word_feat(sentence,
     words = word_vocab_index.lookup(words)
     
     return words
-
+                          
+                         
 def generate_subword_feat(sentence,
                           subword_vocab_index,
                           word_max_length,
@@ -127,9 +121,12 @@ def generate_subword_feat(sentence,
     """generate char feature for sentence"""
     def word_to_subword(word):
         """process subwords for word"""
-        for i in range(subword_max_length):
-            subword = tf.substr([word], i, subword_size)
-            subwords = tf.concat([subwords, [subword]], 0)
+        word_len = tf.size(tf.string_split([word], delimiter=''))
+        subwords = tf.substr([word], 0, subword_size)
+        for i in range(1, subword_max_length):
+            subwords = tf.cond(i+subword_size-1 < word_len,
+                lambda: tf.concat([subwords, tf.substr([word], i, subword_size)], 0),
+                lambda: subwords)
         
         subwords = subwords[:subword_max_length]
         subwords = subword_vocab_index.lookup(subwords)
