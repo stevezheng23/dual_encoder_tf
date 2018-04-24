@@ -8,35 +8,50 @@ import tensorflow as tf
 __all__ = ["DataPipeline", "create_data_pipeline", "create_input_dataset", "create_output_dataset",
            "generate_word_feat", "generate_subword_feat", "generate_char_feat",
            "create_embedding_file", "load_embedding_file", "convert_embedding",
-           "create_vocab_table", "process_vocab_table", "create_vocab_file", "load_vocab_file",
-           "update_word_vocab", "update_subword_vocab", "update_char_vocab",
+           "create_vocab_file", "load_vocab_file", "process_vocab_table",
+           "create_word_vocab", "create_subword_vocab", "create_char_vocab",
            "load_input_data", "prepare_data"]
 
 class DataPipeline(collections.namedtuple("DataPipeline",
-    ("initializer", "source_input_word", "target_input_word", "source_input_subword", "target_input_subword",
-     "source_input_char", "target_input_char", "source_input_word_mask", "target_input_word_mask",
-     "source_input_subword_mask", "target_input_subword_mask", "source_input_char_mask","target_input_char_mask",
-     "input_data_placeholder", "batch_size_placeholder"))):
+    ("initializer", "input_source_word", "input_source_subword", "input_source_char",
+     "input_target_word", "input_target_subword", "input_target_char", "output_label_word",
+     "input_source_word_mask", "input_source_subword_mask", "input_source_char_mask",
+     "input_target_word_mask", "input_target_subword_mask", "input_target_char_mask",
+     "output_label_word_mask", "input_data_placeholder", "batch_size_placeholder"))):
     pass
 
-def create_data_pipeline(input_src_dataset,
-                         input_trg_dataset,
-                         output_label_dataset,
+def create_data_pipeline(input_src_word_dataset,
+                         input_src_subword_dataset,
+                         input_src_char_dataset,
+                         input_trg_word_dataset,
+                         input_trg_subword_dataset,
+                         input_trg_char_dataset,
+                         output_label_word_dataset,
+                         word_vocab_index,
+                         word_pad,
+                         word_feat_enable,
+                         subword_vocab_index,
+                         subword_pad,
+                         subword_feat_enable,
+                         char_vocab_index,
+                         char_pad,
+                         char_feat_enable,
                          batch_size,
                          random_seed,
                          enable_shuffle):
     """create data pipeline for dual encoder"""
-    word_pad_id = tf.cast(word_vocab_index.lookup(tf.constant(word_pad)), tf.int32)
-    subword_pad_id = tf.cast(subword_vocab_index.lookup(tf.constant(subword_pad)), tf.int32)
-    char_pad_id = tf.cast(char_vocab_index.lookup(tf.constant(char_pad)), tf.int32)
+    word_pad_id = word_vocab_index.lookup(tf.constant(word_pad))
+    subword_pad_id = subword_vocab_index.lookup(tf.constant(subword_pad))
+    char_pad_id = char_vocab_index.lookup(tf.constant(char_pad))
     
-    dataset = tf.data.Dataset.zip((input_src_dataset, input_trg_dataset, output_dataset))
+    dataset = tf.data.Dataset.zip((input_src_word_dataset, input_src_subword_dataset, input_src_char_dataset,
+        input_trg_word_dataset, input_trg_subword_dataset, input_trg_char_dataset, output_label_word_dataset))
     
     if enable_shuffle == True:
         buffer_size = batch_size * 1000
         dataset = dataset.shuffle(buffer_size, random_seed)
-
-    src_dataset = dataset.padded_batch(
+    
+    dataset = dataset.padded_batch(
         batch_size=batch_size,
         padded_shapes=(
             tf.TensorShape([None]),
@@ -56,46 +71,69 @@ def create_data_pipeline(input_src_dataset,
             word_pad_id))
         
     iterator = dataset.make_initializable_iterator()
-    (src_word_input, trg_word_input, src_subword_input, trg_subword_input,
-     src_char_input, trg_char_input, label_word_output) = iterator.get_next()
+    (input_src_word, input_src_subword, input_src_char, input_trg_word,
+        input_trg_subword, input_trg_char, output_label_word) = iterator.get_next()
+    
+    return DataPipeline(initializer=iterator.initializer, input_source_word=input_src_word, input_source_subword=input_src_subword,
+        input_source_char=input_src_char, input_target_word=input_trg_word, input_target_subword=input_trg_subword,
+        input_target_char=input_trg_char, output_label_word=output_label_word, input_source_word_mask=None,
+        input_source_subword_mask=None, input_source_char_mask=None, input_target_word_mask=None,
+        input_target_subword_mask=None, input_target_char_mask=None, output_label_word_mask=None,
+        input_data_placeholder=None, batch_size_placeholder=None)
     
 def create_input_dataset(input_file,
                          word_vocab_index,
-                         subword_vocab_index,
-                         char_vocab_index,
                          word_max_length,
-                         subword_max_length,
-                         char_max_length,
-                         subword_size,
                          word_pad,
                          word_sos,
                          word_eos,
+                         word_feat_enable,
+                         subword_vocab_index,
+                         subword_max_length,
                          subword_pad,
-                         char_pad):
+                         subword_size,
+                         subword_feat_enable,
+                         char_vocab_index,
+                         char_max_length,
+                         char_pad,
+                         char_feat_enable):
     """create word/subword/char-level dataset for input data"""
-    word_pad_id = word_vocab_index.lookup(tf.constant(word_pad))
-    subword_pad_id = subword_vocab_index.lookup(tf.constant(subword_pad))
-    char_pad_id = char_vocab_index.lookup(tf.constant(char_pad))
-    
     dataset = tf.data.TextLineDataset([input_file])
-    dataset = dataset.map(lambda sent: (generate_word_feat(sent, word_vocab_index, word_max_length, word_sos, word_eos),
-        generate_subword_feat(sent, subword_vocab_index, word_max_length, subword_max_length, subword_size,
-                              word_sos, word_eos, word_pad_id),
-        generate_char_feat(sent, char_vocab_index, word_max_length, char_max_length, word_sos, word_eos, char_pad_id)))
     
-    return dataset
+    word_dataset = None
+    subword_dataset = None
+    char_dataset = None
+    if word_feat_enable == True:
+        word_dataset = dataset.map(lambda sent: generate_word_feat(sent, word_vocab_index,
+            word_max_length, word_sos, word_eos))
+
+    if subword_feat_enable == True:
+        subword_pad_id = subword_vocab_index.lookup(tf.constant(subword_pad))
+        subword_dataset = dataset.map(lambda sent: generate_subword_feat(sent, subword_vocab_index,
+            word_max_length, subword_max_length, subword_size, word_sos, word_eos, subword_pad_id))
+
+    if char_feat_enable == True:
+        char_pad_id = char_vocab_index.lookup(tf.constant(char_pad))
+        char_dataset = dataset.map(lambda sent: generate_char_feat(sent, char_vocab_index,
+            word_max_length, char_max_length, word_sos, word_eos, char_pad_id))
+    
+    return word_dataset, subword_dataset, char_dataset
 
 def create_output_dataset(output_file,
                           word_vocab_index,
                           word_max_length,
                           word_sos,
-                          word_eos):
-    """create word/subword/char-level dataset for output data"""
+                          word_eos,
+                          word_feat_enable):
+    """create word-level dataset for output data"""
     dataset = tf.data.TextLineDataset([output_file])
-    dataset = dataset.map(lambda sent: generate_word_feat(sent, word_vocab_index,
-        word_max_length, word_sos, word_eos))
     
-    return dataset
+    word_dataset = None
+    if word_feat_enable == True:
+        word_dataset = dataset.map(lambda sent: generate_word_feat(sent, word_vocab_index,
+            word_max_length, word_sos, word_eos))
+    
+    return word_dataset
 
 def generate_word_feat(sentence,
                        word_vocab_index,
@@ -223,65 +261,6 @@ def convert_embedding(embedding_lookup):
     
     return embedding
 
-def create_vocab_table(input_data,
-                       input_size,
-                       word_feat_enable,
-                       subword_feat_enable,
-                       subword_size,
-                       char_feat_enable):
-    """create vocab from input data"""
-    word_vocab = {}
-    subword_vocab = {}
-    char_vocab = {}
-    for sentence in input_data:
-        words = sentence.strip().split(' ')
-        if word_feat_enable is True:
-            update_word_vocab(words, word_vocab)
-        if subword_feat_enable is True:
-            update_subword_vocab(words, subword_size, subword_vocab)
-        if char_feat_enable is True:
-            update_char_vocab(words, char_vocab)
-    
-    return word_vocab, subword_vocab, char_vocab
-
-def process_vocab_table(vocab,
-                        vocab_size,
-                        vocab_lookup,
-                        unk,
-                        pad,
-                        sos,
-                        eos):
-    """process vocab table"""
-    default_vocab = []
-    if unk in vocab:
-        del vocab[unk]
-        default_vocab.append(unk)
-    if pad in vocab:
-        del vocab[pad]
-        default_vocab.append(pad)
-    if sos and sos in vocab:
-        del vocab[sos]
-        default_vocab.append(sos)
-    if eos and eos in vocab:
-        del vocab[eos]
-        default_vocab.append(eos)
-    
-    if vocab_lookup is not None:
-        vocab = { k: vocab[k] for k in vocab.keys() if k in vocab_lookup }
-    
-    sorted_vocab = sorted(vocab, key=vocab.get, reverse=True)
-    sorted_vocab = default_vocab + sorted_vocab
-    
-    vocab_table = sorted_vocab[:vocab_size]
-    vocab_size = len(vocab_table)
-    
-    vocab_index = tf.contrib.lookup.index_table_from_tensor(
-        mapping=tf.constant(vocab_table), default_value=0)
-    vocab_inverted_index = tf.contrib.lookup.index_to_string_table_from_tensor(
-        mapping=tf.constant(vocab_table), default_value=unk)
-    
-    return vocab_table, vocab_size, vocab_index, vocab_inverted_index
-
 def create_vocab_file(vocab_file,
                       vocab_table):
     """create vocab file based on vocab table"""
@@ -312,19 +291,61 @@ def load_vocab_file(vocab_file):
     else:
         raise FileNotFoundError("vocab file not found")
 
-def update_word_vocab(words,
-                      word_vocab):
-    """update word vocab from words"""
-    for word in words:
-        if word not in word_vocab:
-            word_vocab[word] = 1
-        else:
-            word_vocab[word] += 1
+def process_vocab_table(vocab,
+                        vocab_size,
+                        vocab_lookup,
+                        unk,
+                        pad,
+                        sos,
+                        eos):
+    """process vocab table"""
+    default_vocab = [unk, pad]
+    if sos:
+        default_vocab.append(sos)
+    if eos:
+        default_vocab.append(eos)
+    
+    if unk in vocab:
+        del vocab[unk]
+    if pad in vocab:
+        del vocab[pad]
+    if sos and sos in vocab:
+        del vocab[sos]
+    if eos and eos in vocab:
+        del vocab[eos]
+    
+    if vocab_lookup is not None:
+        vocab = { k: vocab[k] for k in vocab.keys() if k in vocab_lookup }
+    
+    sorted_vocab = sorted(vocab, key=vocab.get, reverse=True)
+    sorted_vocab = default_vocab + sorted_vocab
+    
+    vocab_table = sorted_vocab[:vocab_size]
+    vocab_size = len(vocab_table)
+    
+    vocab_index = tf.contrib.lookup.index_table_from_tensor(
+        mapping=tf.constant(vocab_table), default_value=0)
+    vocab_inverted_index = tf.contrib.lookup.index_to_string_table_from_tensor(
+        mapping=tf.constant(vocab_table), default_value=unk)
+    
+    return vocab_table, vocab_size, vocab_index, vocab_inverted_index
 
-def update_subword_vocab(words,
-                         subword_size,
-                         subword_vocab):
-    """update subword vocab from words"""
+def create_word_vocab(input_data):
+    """create word vocab from input data"""
+    word_vocab = {}
+    for sentence in input_data:
+        words = sentence.strip().split(' ')
+        for word in words:
+            if word not in word_vocab:
+                word_vocab[word] = 1
+            else:
+                word_vocab[word] += 1
+    
+    return word_vocab
+
+def create_subword_vocab(input_data,
+                         subword_size):
+    """create subword vocab from input data"""
     def generate_subword(word,
                          subword_size):
         """generate subword for word"""
@@ -337,24 +358,33 @@ def update_subword_vocab(words,
         
         return subwords
     
-    for word in words:
-        subwords = generate_subword(word, subword_size)
-        for subword in subwords:
-            if subword not in subword_vocab:
-                subword_vocab[subword] = 1
-            else:
-                subword_vocab[subword] += 1
+    subword_vocab = {}
+    for sentence in input_data:
+        words = sentence.strip().split(' ')
+        for word in words:
+            subwords = generate_subword(word, subword_size)
+            for subword in subwords:
+                if subword not in subword_vocab:
+                    subword_vocab[subword] = 1
+                else:
+                    subword_vocab[subword] += 1
+    
+    return subword_vocab
 
-def update_char_vocab(words,
-                      char_vocab):
-    """update char vocab from words"""
-    for word in words:
-        chars = list(word)
-        for ch in chars:
-            if ch not in char_vocab:
-                char_vocab[ch] = 1
-            else:
-                char_vocab[ch] += 1
+def create_char_vocab(input_data):
+    """create char vocab from input data"""
+    char_vocab = {}
+    for sentence in input_data:
+        words = sentence.strip().split(' ')
+        for word in words:
+            chars = list(word)
+            for ch in chars:
+                if ch not in char_vocab:
+                    char_vocab[ch] = 1
+                else:
+                    char_vocab[ch] += 1
+    
+    return char_vocab
 
 def load_input_data(input_file):
     """load input data from input file"""
@@ -380,23 +410,18 @@ def prepare_data(logger,
                  word_pad,
                  word_sos,
                  word_eos,
-                 word_max_length,
                  word_feat_enable,
                  pretrain_word_embed,
                  subword_vocab_file,
                  subword_vocab_size,
-                 subword_embed_dim,
                  subword_unk,
                  subword_pad,
                  subword_size,
-                 subword_max_length,
                  subword_feat_enable,
                  char_vocab_file,
                  char_vocab_size,
-                 char_embed_dim,
                  char_unk,
                  char_pad,
-                 char_max_length,
                  char_feat_enable):
     """prepare data for word representation"""
     input_data = None
@@ -404,13 +429,6 @@ def prepare_data(logger,
         logger.log_print("# loading input data from {0}".format(input_file))
         input_data, input_size = load_input_data(input_file)
         logger.log_print("# input data has {0} lines".format(input_size))
-    
-    word_vocab = None
-    subword_vocab = None
-    char_vocab = None
-    if input_data is not None:
-        word_vocab, subword_vocab, char_vocab = create_vocab_table(input_data, input_size,
-            word_feat_enable, subword_feat_enable, subword_size, char_feat_enable)
     
     word_embed_data = None
     if pretrain_word_embed == True:
@@ -428,6 +446,11 @@ def prepare_data(logger,
         word_embed_size = len(word_embed_data) if word_embed_data is not None else 0
         logger.log_print("# word embedding table has {0} words".format(word_embed_size))
     
+    word_vocab = None
+    word_vocab_table = None
+    word_vocab_size = None
+    word_vocab_index = None
+    word_vocab_inverted_index = None
     if word_feat_enable is True:
         if tf.gfile.Exists(word_vocab_file):
             logger.log_print("# loading word vocab table from {0}".format(word_vocab_file))
@@ -435,8 +458,9 @@ def prepare_data(logger,
             (word_vocab_table, word_vocab_size, word_vocab_index,
                 word_vocab_inverted_index) = process_vocab_table(word_vocab,
                 word_vocab_size, word_embed_data, word_unk, word_pad, word_sos, word_eos)
-        elif word_vocab is not None:
+        elif input_data is not None:
             logger.log_print("# creating word vocab table from {0}".format(input_file))
+            word_vocab = create_word_vocab(input_data)
             (word_vocab_table, word_vocab_size, word_vocab_index,
                 word_vocab_inverted_index) = process_vocab_table(word_vocab,
                 word_vocab_size, word_embed_data, word_unk, word_pad, word_sos, word_eos)
@@ -447,15 +471,20 @@ def prepare_data(logger,
 
         logger.log_print("# word vocab table has {0} words".format(word_vocab_size))
     
+    subword_vocab = None
+    subword_vocab_size = None
+    subword_vocab_index = None
+    subword_vocab_inverted_index = None
     if subword_feat_enable is True:
         if tf.gfile.Exists(subword_vocab_file):
             logger.log_print("# loading subword vocab table from {0}".format(subword_vocab_file))
             subword_vocab = load_vocab_file(subword_vocab_file)
-            (subword_vocab_table, subword_vocab_size, subword_vocab_index,
+            (_, subword_vocab_size, subword_vocab_index,
                 subword_vocab_inverted_index) = process_vocab_table(subword_vocab,
                 subword_vocab_size, None, subword_unk, subword_pad, None, None)
-        elif subword_vocab is not None:
+        elif input_data is not None:
             logger.log_print("# creating subword vocab table from {0}".format(input_file))
+            subword_vocab = create_subword_vocab(input_data, subword_size)
             (subword_vocab_table, subword_vocab_size, subword_vocab_index,
                 subword_vocab_inverted_index) = process_vocab_table(subword_vocab,
                 subword_vocab_size, None, subword_unk, subword_pad, None, None)
@@ -466,15 +495,20 @@ def prepare_data(logger,
 
         logger.log_print("# subword vocab table has {0} subwords".format(subword_vocab_size))
     
+    char_vocab = None
+    char_vocab_size = None
+    char_vocab_index = None
+    char_vocab_inverted_index = None
     if char_feat_enable is True:
         if tf.gfile.Exists(char_vocab_file):
             logger.log_print("# loading char vocab table from {0}".format(char_vocab_file))
             char_vocab = load_vocab_file(char_vocab_file)
-            (char_vocab_table, char_vocab_size, char_vocab_index,
+            (_, char_vocab_size, char_vocab_index,
                 char_vocab_inverted_index) = process_vocab_table(char_vocab,
                 char_vocab_size, None, char_unk, char_pad, None, None)
-        elif char_vocab is not None:
+        elif input_data is not None:
             logger.log_print("# creating char vocab table from {0}".format(input_file))
+            char_vocab = create_char_vocab(input_data)
             (char_vocab_table, char_vocab_size, char_vocab_index,
                 char_vocab_inverted_index) = process_vocab_table(char_vocab,
                 char_vocab_size, None, char_unk, char_pad, None, None)
