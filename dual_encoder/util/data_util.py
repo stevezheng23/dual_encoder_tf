@@ -54,13 +54,13 @@ def create_data_pipeline(input_src_word_dataset,
     dataset = dataset.padded_batch(
         batch_size=batch_size,
         padded_shapes=(
-            tf.TensorShape([None]),
-            tf.TensorShape([None]),
-            tf.TensorShape([None]),
-            tf.TensorShape([None]),
-            tf.TensorShape([None]),
-            tf.TensorShape([None]),
-            tf.TensorShape([None])),
+            tf.TensorShape([None,None]),
+            tf.TensorShape([None,None]),
+            tf.TensorShape([None,None]),
+            tf.TensorShape([None,None]),
+            tf.TensorShape([None,None]),
+            tf.TensorShape([None,None]),
+            tf.TensorShape([None,None])),
         padding_values=(
             word_pad_id,
             word_pad_id,
@@ -69,14 +69,14 @@ def create_data_pipeline(input_src_word_dataset,
             char_pad_id,
             char_pad_id,
             word_pad_id))
-        
+    
     iterator = dataset.make_initializable_iterator()
     (input_src_word, input_src_subword, input_src_char, input_trg_word,
         input_trg_subword, input_trg_char, output_label_word) = iterator.get_next()
     
     return DataPipeline(initializer=iterator.initializer, input_source_word=input_src_word, input_source_subword=input_src_subword,
         input_source_char=input_src_char, input_target_word=input_trg_word, input_target_subword=input_trg_subword,
-        input_target_char=input_trg_char, output_label_word=output_label_word, input_source_word_mask=None,
+        input_target_char=input_trg_char, output_label_word=None, input_source_word_mask=None,
         input_source_subword_mask=None, input_source_char_mask=None, input_target_word_mask=None,
         input_target_subword_mask=None, input_target_char_mask=None, output_label_word_mask=None,
         input_data_placeholder=None, batch_size_placeholder=None)
@@ -101,21 +101,21 @@ def create_input_dataset(input_file,
     dataset = tf.data.TextLineDataset([input_file])
     
     word_dataset = None
-    subword_dataset = None
-    char_dataset = None
     if word_feat_enable == True:
         word_dataset = dataset.map(lambda sent: generate_word_feat(sent, word_vocab_index,
             word_max_length, word_sos, word_eos))
 
+    subword_dataset = None
     if subword_feat_enable == True:
         subword_pad_id = subword_vocab_index.lookup(tf.constant(subword_pad))
         subword_dataset = dataset.map(lambda sent: generate_subword_feat(sent, subword_vocab_index,
-            word_max_length, subword_max_length, subword_size, word_sos, word_eos, subword_pad_id))
+            word_max_length, subword_max_length, subword_size, word_sos, word_eos, word_pad, subword_pad_id))
 
+    char_dataset = None
     if char_feat_enable == True:
         char_pad_id = char_vocab_index.lookup(tf.constant(char_pad))
         char_dataset = dataset.map(lambda sent: generate_char_feat(sent, char_vocab_index,
-            word_max_length, char_max_length, word_sos, word_eos, char_pad_id))
+            word_max_length, char_max_length, word_sos, word_eos, word_pad, char_pad_id))
     
     return word_dataset, subword_dataset, char_dataset
 
@@ -144,10 +144,10 @@ def generate_word_feat(sentence,
     words = tf.string_split([sentence], delimiter=' ').values
     words = tf.concat([[word_sos], words[:word_max_length], [word_eos]], 0)
     words = word_vocab_index.lookup(words)
+    words = tf.expand_dims(words, axis=-1)
     
     return words
-                          
-                         
+             
 def generate_subword_feat(sentence,
                           subword_vocab_index,
                           word_max_length,
@@ -155,6 +155,7 @@ def generate_subword_feat(sentence,
                           subword_size,
                           word_sos,
                           word_eos,
+                          word_pad,
                           subword_pad_id):
     """generate char feature for sentence"""
     def word_to_subword(word):
@@ -176,8 +177,14 @@ def generate_subword_feat(sentence,
     
     """process words for sentence"""
     words = tf.string_split([sentence], delimiter=' ').values
-    words = tf.concat([[word_sos], words[:word_max_length], [word_eos]], 0)
-    word_subwords = tf.map_fn(word_to_subword, words, dtype=tf.int64)
+    words = tf.concat([[word_sos], words[:word_max_length], [word_eos],
+        tf.constant(word_pad, shape=[word_max_length])], axis=0)
+    max_length = word_max_length + 2
+    words = words[:max_length]
+    words = tf.dynamic_partition(words, tf.range(max_length), max_length)
+    words = tf.unstack(words, axis=0)
+    word_subwords = [word_to_subword(tf.squeeze(word, axis=0)) for word in words]
+    word_subwords = tf.stack(word_subwords, axis=0)
     
     return word_subwords
 
@@ -187,6 +194,7 @@ def generate_char_feat(sentence,
                        char_max_length,
                        word_sos,
                        word_eos,
+                       word_pad,
                        char_pad_id):
     """generate char feature for sentence"""
     def word_to_char(word):
@@ -202,8 +210,14 @@ def generate_char_feat(sentence,
     
     """process words for sentence"""
     words = tf.string_split([sentence], delimiter=' ').values
-    words = tf.concat([[word_sos], words[:word_max_length], [word_eos]], 0)
-    word_chars = tf.map_fn(word_to_char, words, dtype=tf.int64)
+    words = tf.concat([[word_sos], words[:word_max_length], [word_eos],
+        tf.constant(word_pad, shape=[word_max_length])], axis=0)
+    max_length = word_max_length + 2
+    words = words[:max_length]
+    words = tf.dynamic_partition(words, tf.range(max_length), max_length)
+    words = tf.unstack(words, axis=0)
+    word_chars = [word_to_char(tf.squeeze(word, axis=0)) for word in words]
+    word_chars = tf.stack(word_chars, axis=0)
     
     return word_chars
 
