@@ -36,13 +36,35 @@ def create_data_pipeline(input_src_word_dataset,
                          char_vocab_index,
                          char_pad,
                          char_feat_enable,
+                         dataset_size,
                          batch_size,
                          random_seed,
                          enable_shuffle):
     """create data pipeline for dual encoder"""
-    word_pad_id = word_vocab_index.lookup(tf.constant(word_pad))
-    subword_pad_id = subword_vocab_index.lookup(tf.constant(subword_pad))
-    char_pad_id = char_vocab_index.lookup(tf.constant(char_pad))
+    default_pad_id = tf.constant(0, shape=[], dtype=tf.int64)
+    default_dataset_tensor = tf.constant(0, shape=[1,1], dtype=tf.int64)
+    
+    if word_feat_enable == True:
+        word_pad_id = word_vocab_index.lookup(tf.constant(word_pad))
+    else:
+        word_pad_id = default_pad_id
+        input_src_word_dataset = tf.data.Dataset.from_tensors(default_dataset_tensor).repeat(dataset_size)
+        input_trg_word_dataset = tf.data.Dataset.from_tensors(default_dataset_tensor).repeat(dataset_size)
+        output_label_word_dataset = tf.data.Dataset.from_tensors(default_dataset_tensor).repeat(dataset_size)
+    
+    if subword_feat_enable == True:
+        subword_pad_id = subword_vocab_index.lookup(tf.constant(subword_pad))
+    else:
+        subword_pad_id = default_pad_id
+        input_src_subword_dataset = tf.data.Dataset.from_tensors(default_dataset_tensor).repeat(dataset_size)
+        input_trg_subword_dataset = tf.data.Dataset.from_tensors(default_dataset_tensor).repeat(dataset_size)
+    
+    if char_feat_enable == True:
+        char_pad_id = char_vocab_index.lookup(tf.constant(char_pad))
+    else:
+        char_pad_id = default_pad_id
+        input_src_char_dataset = tf.data.Dataset.from_tensors(default_dataset_tensor).repeat(dataset_size)
+        input_trg_char_dataset = tf.data.Dataset.from_tensors(default_dataset_tensor).repeat(dataset_size)
     
     dataset = tf.data.Dataset.zip((input_src_word_dataset, input_src_subword_dataset, input_src_char_dataset,
         input_trg_word_dataset, input_trg_subword_dataset, input_trg_char_dataset, output_label_word_dataset))
@@ -71,8 +93,15 @@ def create_data_pipeline(input_src_word_dataset,
             word_pad_id))
     
     iterator = dataset.make_initializable_iterator()
-    (input_src_word, input_src_subword, input_src_char, input_trg_word,
-        input_trg_subword, input_trg_char, output_label_word) = iterator.get_next()
+    batch_data = iterator.get_next()
+    
+    input_src_word = batch_data[0] if word_feat_enable == True else None
+    input_src_subword = batch_data[1] if subword_feat_enable == True else None
+    input_src_char = batch_data[2] if char_feat_enable == True else None
+    input_trg_word = batch_data[3] if word_feat_enable == True else None
+    input_trg_subword = batch_data[4] if subword_feat_enable == True else None
+    input_trg_char = batch_data[5] if char_feat_enable == True else None
+    output_label_word = batch_data[6] if word_feat_enable == True else None
     
     return DataPipeline(initializer=iterator.initializer, input_source_word=input_src_word, input_source_subword=input_src_subword,
         input_source_char=input_src_char, input_target_word=input_trg_word, input_target_subword=input_trg_subword,
