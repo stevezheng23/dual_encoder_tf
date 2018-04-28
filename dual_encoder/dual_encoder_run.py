@@ -4,9 +4,10 @@ import json
 import numpy as np
 import tensorflow as tf
 
-from util.debug_logger import *
 from util.default_util import *
 from util.param_util import *
+from util.model_util import *
+from util.debug_logger import *
 
 def add_arguments(parser):
     parser.add_argument("--mode", help="mode to run", required=True)
@@ -60,10 +61,10 @@ def train(logger,
                 step_in_epoch += 1
                 train_logger.update(train_result, epoch, step_in_epoch, end_time-start_time)
 
-                if step_in_epoch % hyperparamshyperparams["train"]["step_per_stat"] == 0:
+                if step_in_epoch % hyperparams["train"]["step_per_stat"] == 0:
                     train_logger.check()
                     train_summary_writer.add_summary(train_result.summary, global_step)
-                if step_in_epoch % hyperparamshyperparams["train"]["step_per_ckpt"] == 0:
+                if step_in_epoch % hyperparams["train"]["step_per_ckpt"] == 0:
                     train_model.model.save(train_sess, global_step)
             except tf.errors.OutOfRangeError:
                 train_logger.check()
