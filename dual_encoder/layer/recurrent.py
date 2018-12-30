@@ -4,7 +4,7 @@ import tensorflow as tf
 from tensorflow.contrib.rnn import RNNCell
 
 from util.default_util import *
-from util.language_model_util import *
+from util.dual_encoder_util import *
 
 __all__ = ["RNN", "BiRNN", "StackedRNN", "StackedBiRNN"]
 
