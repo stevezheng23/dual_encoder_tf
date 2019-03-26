@@ -25,6 +25,7 @@ def create_dropout_layer(dropout,
 def create_embedding_layer(vocab_size,
                            embed_dim,
                            pretrained,
+                           embedding,
                            num_gpus,
                            default_gpu_id,
                            regularizer,
@@ -33,7 +34,7 @@ def create_embedding_layer(vocab_size,
                            trainable):
     """create embedding layer"""
     if pretrained == True:
-        embed_layer = PretrainedEmbedding(vocab_size=vocab_size, embed_dim=embed_dim,
+        embed_layer = PretrainedEmbedding(vocab_size=vocab_size, embed_dim=embed_dim, embedding=embedding,
             num_gpus=num_gpus, default_gpu_id=default_gpu_id, regularizer=regularizer, feedable=feedable, trainable=trainable)
     else:
         embed_layer = Embedding(vocab_size=vocab_size, embed_dim=embed_dim,
@@ -44,7 +45,8 @@ def create_embedding_layer(vocab_size,
 def create_position_layer(position_type,
                           unit_dim,
                           max_length,
-                          time_scale,
+                          min_time_scale,
+                          max_time_scale,
                           num_gpus,
                           default_gpu_id,
                           regularizer,
@@ -53,7 +55,7 @@ def create_position_layer(position_type,
     """create position layer"""
     scope = "position/{0}".format(position_type)
     if position_type == "sin_pos":
-        position_layer = SinusoidPosition(unit_dim=unit_dim, time_scale=time_scale,
+        position_layer = SinusoidPosition(min_time_scale=min_time_scale, max_time_scale=max_time_scale,
             num_gpus=num_gpus, default_gpu_id=default_gpu_id, scope=scope)
     elif position_type == "abs_pos":
         position_layer = AbsolutePosition(unit_dim=unit_dim, max_length=max_length,
@@ -76,6 +78,7 @@ def create_convolution_layer(conv_type,
                              layer_dropout,
                              layer_norm,
                              residual_connect,
+                             use_bias,
                              num_gpus,
                              default_gpu_id,
                              regularizer,
@@ -87,31 +90,31 @@ def create_convolution_layer(conv_type,
         conv_layer = StackedConv(layer_creator=Conv1D, num_layer=num_layer, num_channel=num_channel,
             num_filter=num_filter, window_size=window_size, stride_size=stride_size, padding_type=padding_type,
             activation=activation, dropout=dropout, layer_dropout=layer_dropout, layer_norm=layer_norm,
-            residual_connect=residual_connect, num_gpus=num_gpus, default_gpu_id=default_gpu_id,
+            residual_connect=residual_connect, use_bias=use_bias, num_gpus=num_gpus, default_gpu_id=default_gpu_id,
             regularizer=regularizer, random_seed=random_seed, trainable=trainable, scope=scope)
     elif conv_type == "stacked_3d":
         conv_layer = StackedConv(layer_creator=Conv3D, num_layer=num_layer, num_channel=num_channel,
             num_filter=num_filter, window_size=window_size, stride_size=stride_size, padding_type=padding_type,
             activation=activation, dropout=dropout, layer_dropout=layer_dropout, layer_norm=layer_norm,
-            residual_connect=residual_connect, num_gpus=num_gpus, default_gpu_id=default_gpu_id,
+            residual_connect=residual_connect, use_bias=use_bias, num_gpus=num_gpus, default_gpu_id=default_gpu_id,
             regularizer=regularizer, random_seed=random_seed, trainable=trainable, scope=scope)
     elif conv_type == "stacked_sep_1d":
         conv_layer = StackedConv(layer_creator=SeparableConv1D, num_layer=num_layer, num_channel=num_channel,
             num_filter=num_filter, window_size=window_size, stride_size=stride_size, padding_type=padding_type,
             activation=activation, dropout=dropout, layer_dropout=layer_dropout, layer_norm=layer_norm,
-            residual_connect=residual_connect, num_gpus=num_gpus, default_gpu_id=default_gpu_id,
+            residual_connect=residual_connect, use_bias=use_bias, num_gpus=num_gpus, default_gpu_id=default_gpu_id,
             regularizer=regularizer, random_seed=random_seed, trainable=trainable, scope=scope)
     elif conv_type == "stacked_multi_1d":
         conv_layer = StackedMultiConv(layer_creator=Conv1D, num_layer=num_layer, num_channel=num_channel,
             num_filter=num_filter, window_size=window_size, stride_size=stride_size, padding_type=padding_type,
             activation=activation, dropout=dropout, layer_dropout=layer_dropout, layer_norm=layer_norm,
-            residual_connect=residual_connect, num_gpus=num_gpus, default_gpu_id=default_gpu_id,
+            residual_connect=residual_connect, use_bias=use_bias, num_gpus=num_gpus, default_gpu_id=default_gpu_id,
             regularizer=regularizer, random_seed=random_seed, trainable=trainable, scope=scope)
     elif conv_type == "stacked_multi_sep_1d":
         conv_layer = StackedMultiConv(layer_creator=SeparableConv1D, num_layer=num_layer, num_channel=num_channel,
             num_filter=num_filter, window_size=window_size, stride_size=stride_size, padding_type=padding_type,
             activation=activation, dropout=dropout, layer_dropout=layer_dropout, layer_norm=layer_norm,
-            residual_connect=residual_connect, num_gpus=num_gpus, default_gpu_id=default_gpu_id,
+            residual_connect=residual_connect, use_bias=use_bias, num_gpus=num_gpus, default_gpu_id=default_gpu_id,
             regularizer=regularizer, random_seed=random_seed, trainable=trainable, scope=scope)
     else:
         raise ValueError("unsupported convolution type {0}".format(conv_type))
@@ -223,16 +226,6 @@ def create_recurrent_layer(recurrent_type,
             activation=activation, dropout=dropout, forget_bias=forget_bias, residual_connect=residual_connect,
             attention_mechanism=attention_mechanism, num_gpus=num_gpus, default_gpu_id=default_gpu_id,
             random_seed=random_seed, trainable=trainable, scope=scope)
-    elif recurrent_type == "stacked_uni":
-        recurrent_layer = StackedRNN(num_layer=num_layer, unit_dim=unit_dim, cell_type=cell_type,
-            activation=activation, dropout=dropout, forget_bias=forget_bias, residual_connect=residual_connect,
-            attention_mechanism=attention_mechanism, num_gpus=num_gpus, default_gpu_id=default_gpu_id,
-            random_seed=random_seed, trainable=trainable, scope=scope)
-    elif recurrent_type == "stacked_bi":
-        recurrent_layer = StackedBiRNN(num_layer=num_layer, unit_dim=unit_dim, cell_type=cell_type,
-            activation=activation, dropout=dropout, forget_bias=forget_bias, residual_connect=residual_connect,
-            attention_mechanism=attention_mechanism, num_gpus=num_gpus, default_gpu_id=default_gpu_id,
-            random_seed=random_seed, trainable=trainable, scope=scope)
     else:
         raise ValueError("unsupported recurrent type {0}".format(recurrent_type))
     
@@ -242,6 +235,7 @@ def create_attention_layer(attention_type,
                            src_dim,
                            trg_dim,
                            att_dim,
+                           num_head,
                            score_type,
                            dropout,
                            att_dropout,
@@ -282,7 +276,7 @@ def create_attention_layer(attention_type,
             external_matrix=external_matrix, num_gpus=num_gpus, default_gpu_id=default_gpu_id,
             regularizer=regularizer, random_seed=random_seed, trainable=trainable, scope=scope)
     elif attention_type == "multi_head_att":
-        attention_layer = MultiHeadAttention(src_dim=src_dim, trg_dim=trg_dim, att_dim=att_dim,
+        attention_layer = MultiHeadAttention(src_dim=src_dim, trg_dim=trg_dim, att_dim=att_dim, num_head=num_head,
             score_type=score_type, dropout=dropout, att_dropout=att_dropout, layer_dropout=layer_dropout,
             layer_norm=layer_norm, residual_connect=residual_connect, is_self=is_self,
             external_matrix=external_matrix, num_gpus=num_gpus, default_gpu_id=default_gpu_id, 
@@ -317,7 +311,7 @@ class AttentionMechanism(object):
         self.memory = memory
         self.memory_mask = memory_mask
         
-        self.attention_layer = create_attention_layer(attention_type, src_dim, trg_dim, att_dim,
+        self.attention_layer = create_attention_layer(attention_type, src_dim, trg_dim, att_dim, -1,
             score_type, dropout, att_dropout, layer_dropout, layer_norm, residual_connect, is_self,
             external_matrix, num_gpus, default_gpu_id, False, regularizer, random_seed, trainable)
     
