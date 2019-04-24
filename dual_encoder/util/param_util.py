@@ -1,10 +1,14 @@
+import argparse
 import codecs
 import json
+import math
+import os.path
 
 import numpy as np
 import tensorflow as tf
 
-__all__ = ["load_hyperparams", "override_hyperparams", "create_default_hyperparams"]
+__all__ = ["create_default_hyperparams", "load_hyperparams",
+           "generate_search_lookup", "search_hyperparams", "create_hyperparams_file"]
 
 def create_default_hyperparams(config_type):
     """create default hyperparameters"""
@@ -141,7 +145,7 @@ def create_default_hyperparams(config_type):
             model_interaction_trg2src_attention_dropout=0.0,
             model_interaction_trg2src_trainable=True,
             model_interaction_trg2src_enable=True,
-            model_matching_similarity_type="dot_product",
+            model_matching_score_type="dot_product",
             model_matching_loss_type="neg_sampling",
             device_num_gpus=1,
             device_default_gpu_id=0,

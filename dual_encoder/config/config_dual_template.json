@@ -130,7 +130,7 @@
     "model_interaction_trg2src_attention_dropout": 0.0,
     "model_interaction_trg2src_trainable": true,
     "model_interaction_trg2src_enable": true,
-    "model_matching_similarity_type": "dot_product",
+    "model_matching_score_type": "dot_product",
     "model_matching_loss_type": "neg_sampling",
     "device_num_gpus": 1,
     "device_default_gpu_id": 0,
