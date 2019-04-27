@@ -457,11 +457,11 @@ def prepare_data(logger,
                  word_vocab_threshold,
                  word_embed_dim,
                  word_embed_file,
-                 full_word_embed_file,
+                 word_embed_full_file,
+                 word_embed_pretrained,
                  word_unk,
                  word_pad,
                  word_feat_enable,
-                 pretrain_word_embed,
                  char_vocab_file,
                  char_vocab_size,
                  char_vocab_threshold,
@@ -470,15 +470,15 @@ def prepare_data(logger,
                  char_feat_enable):
     """prepare data"""    
     word_embed_data = None
-    if pretrain_word_embed == True:
+    if word_embed_pretrained == True:
         if os.path.exists(word_embed_file):
             logger.log_print("# loading word embeddings from {0}".format(word_embed_file))
             word_embed_data = load_embedding_file(word_embed_file, word_embed_dim, word_unk, word_pad)
-        elif os.path.exists(full_word_embed_file):
-            logger.log_print("# loading word embeddings from {0}".format(full_word_embed_file))
-            word_embed_data = load_embedding_file(full_word_embed_file, word_embed_dim, word_unk, word_pad)
+        elif os.path.exists(word_embed_full_file):
+            logger.log_print("# loading word embeddings from {0}".format(word_embed_full_file))
+            word_embed_data = load_embedding_file(word_embed_full_file, word_embed_dim, word_unk, word_pad)
         else:
-            raise ValueError("{0} or {1} must be provided".format(word_embed_file, full_word_embed_file))
+            raise ValueError("{0} or {1} must be provided".format(word_embed_file, word_embed_full_file))
         
         word_embed_size = len(word_embed_data) if word_embed_data is not None else 0
         logger.log_print("# word embedding table has {0} words".format(word_embed_size))
@@ -543,24 +543,40 @@ def prepare_data(logger,
 def prepare_dual_data(logger,
                       input_dual_file,
                       input_file_type,
-                      word_vocab_file,
-                      word_vocab_size,
-                      word_vocab_threshold,
-                      word_embed_dim,
-                      word_embed_file,
-                      full_word_embed_file,
-                      word_unk,
-                      word_pad,
-                      word_feat_enable,
-                      pretrain_word_embed,
-                      char_vocab_file,
-                      char_vocab_size,
-                      char_vocab_threshold,
-                      char_unk,
-                      char_pad,
-                      char_feat_enable):
+                      share_vocab,
+                      src_word_vocab_file,
+                      src_word_vocab_size,
+                      src_word_vocab_threshold,
+                      src_word_embed_dim,
+                      src_word_embed_file,
+                      src_word_embed_full_file,
+                      src_word_embed_pretrained,
+                      src_word_unk,
+                      src_word_pad,
+                      src_word_feat_enable,
+                      src_char_vocab_file,
+                      src_char_vocab_size,
+                      src_char_vocab_threshold,
+                      src_char_unk,
+                      src_char_pad,
+                      src_char_feat_enable
+                      trg_word_vocab_file,
+                      trg_word_vocab_size,
+                      trg_word_vocab_threshold,
+                      trg_word_embed_dim,
+                      trg_word_embed_file,
+                      trg_word_embed_full_file,
+                      trg_word_embed_pretrained,
+                      trg_word_unk,
+                      trg_word_pad,
+                      trg_word_feat_enable,
+                      trg_char_vocab_file,
+                      trg_char_vocab_size,
+                      trg_char_vocab_threshold,
+                      trg_char_unk,
+                      trg_char_pad,
+                      trg_char_feat_enable):
     """prepare dual data"""
-    input_data = set()
     logger.log_print("# loading input dual data from {0}".format(input_dual_file))
     input_dual_data = load_dual_data(input_dual_file, input_file_type)
     
@@ -571,14 +587,40 @@ def prepare_dual_data(logger,
     input_trg_data = [dual_data["target"] for dual_data in input_dual_data]
     input_label_data = [dual_data["label"] for dual_data in input_dual_data]
     
-    input_data.update(input_src_data)
-    input_data.update(input_trg_data)
-    input_data = list(input_data)
-    (word_embed_data, word_vocab_size, word_vocab_index, word_vocab_inverted_index,
-        char_vocab_size, char_vocab_index, char_vocab_inverted_index) = prepare_data(logger, input_data,
-            word_vocab_file, word_vocab_size, word_vocab_threshold, word_embed_dim, word_embed_file,
-            full_word_embed_file, word_unk, word_pad, word_feat_enable, pretrain_word_embed,
-            char_vocab_file, char_vocab_size, char_vocab_threshold, char_unk, char_pad, char_feat_enable)
+    logger.log_print("# prepare source data")
+    if share_vocab == False:
+        (src_word_embed_data, src_word_vocab_size, src_word_vocab_index, src_word_vocab_inverted_index,
+            src_char_vocab_size, src_char_vocab_index, src_char_vocab_inverted_index) = prepare_data(logger, input_src_data,
+                src_word_vocab_file, src_word_vocab_size, src_word_vocab_threshold, src_word_embed_dim, src_word_embed_file,
+                src_word_embed_full_file, src_word_embed_pretrained, src_word_unk, src_word_pad, src_word_feat_enable, 
+                src_char_vocab_file, src_char_vocab_size, src_char_vocab_threshold, src_char_unk, src_char_pad, src_char_feat_enable)
+    else:
+        input_data = []
+        input_data.update(input_src_data)
+        input_data.update(input_trg_data)
+        (src_word_embed_data, src_word_vocab_size, src_word_vocab_index, src_word_vocab_inverted_index,
+            src_char_vocab_size, src_char_vocab_index, src_char_vocab_inverted_index) = prepare_data(logger, input_src_data,
+                src_word_vocab_file, src_word_vocab_size, src_word_vocab_threshold, src_word_embed_dim, src_word_embed_file,
+                src_word_embed_full_file, src_word_embed_pretrained, src_word_unk, src_word_pad, src_word_feat_enable, 
+                src_char_vocab_file, src_char_vocab_size, src_char_vocab_threshold, src_char_unk, src_char_pad, src_char_feat_enable)
     
-    return (input_dual_data, input_src_data, input_trg_data, input_label_data, word_embed_data,
-        word_vocab_size, word_vocab_index, word_vocab_inverted_index, char_vocab_size, char_vocab_index, char_vocab_inverted_index)
+    logger.log_print("# prepare target data")
+    if share_vocab = False:
+        (trg_word_embed_data, trg_word_vocab_size, trg_word_vocab_index, trg_word_vocab_inverted_index,
+            trg_char_vocab_size, trg_char_vocab_index, trg_char_vocab_inverted_index) = prepare_data(logger, input_trg_data,
+                trg_word_vocab_file, trg_word_vocab_size, trg_word_vocab_threshold, trg_word_embed_dim, trg_word_embed_file,
+                trg_word_embed_full_file, trg_word_embed_pretrained, trg_word_unk, trg_word_pad, trg_word_feat_enable, 
+                trg_char_vocab_file, trg_char_vocab_size, trg_char_vocab_threshold, trg_char_unk, trg_char_pad, trg_char_feat_enable)
+    else:
+        trg_word_embed_data = src_word_embed_data
+        trg_word_vocab_size = src_word_vocab_size
+        trg_word_vocab_index = src_word_vocab_index
+        trg_word_vocab_inverted_index = src_word_vocab_inverted_index
+        trg_char_vocab_size = src_char_vocab_size
+        trg_char_vocab_index = src_char_vocab_index
+        trg_char_vocab_inverted_index = src_char_vocab_inverted_index
+    
+    return (input_dual_data, input_src_data, input_trg_data, input_label_data, src_word_embed_data,
+        src_word_vocab_size, src_word_vocab_index, src_word_vocab_inverted_index, src_char_vocab_size,
+        src_char_vocab_index, src_char_vocab_inverted_index, trg_word_embed_data, trg_word_vocab_size, trg_word_vocab_index,
+        trg_word_vocab_inverted_index, trg_char_vocab_size, trg_char_vocab_index, trg_char_vocab_inverted_index)
