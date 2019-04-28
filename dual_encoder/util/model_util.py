@@ -3,7 +3,6 @@ import collections
 import numpy as np
 import tensorflow as tf
 
-from model.dam import *
 from util.data_util import *
 
 __all__ = ["TrainModel", "InferModel",
