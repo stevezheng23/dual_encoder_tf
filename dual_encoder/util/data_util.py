@@ -25,12 +25,18 @@ def create_dynamic_pipeline(input_src_word_dataset,
                             input_trg_word_dataset,
                             input_trg_char_dataset,
                             input_label_dataset,
-                            word_vocab_index,
-                            word_pad,
-                            word_feat_enable,
-                            char_vocab_index,
-                            char_pad,
-                            char_feat_enable,
+                            src_word_vocab_index,
+                            src_word_pad,
+                            src_word_feat_enable,
+                            src_char_vocab_index,
+                            src_char_pad,
+                            src_char_feat_enable,
+                            trg_word_vocab_index,
+                            trg_word_pad,
+                            trg_word_feat_enable,
+                            trg_char_vocab_index,
+                            trg_char_pad,
+                            trg_char_feat_enable,
                             random_seed,
                             enable_shuffle,
                             buffer_size,
@@ -43,18 +49,28 @@ def create_dynamic_pipeline(input_src_word_dataset,
     default_pad_id = tf.constant(0, shape=[], dtype=tf.int32)
     default_dataset_tensor = tf.constant(0, shape=[1,1], dtype=tf.int32)
     
-    if word_feat_enable == True:
-        word_pad_id = tf.cast(word_vocab_index.lookup(tf.constant(word_pad)), dtype=tf.int32)
+    if src_word_feat_enable == True:
+        src_word_pad_id = tf.cast(src_word_vocab_index.lookup(tf.constant(src_word_pad)), dtype=tf.int32)
     else:
-        word_pad_id = default_pad_id
+        src_word_pad_id = default_pad_id
         input_src_word_dataset = tf.data.Dataset.from_tensors(default_dataset_tensor).repeat(data_size_placeholder)
+    
+    if src_char_feat_enable == True:
+        src_char_pad_id = tf.cast(src_char_vocab_index.lookup(tf.constant(src_char_pad)), dtype=tf.int32)
+    else:
+        src_char_pad_id = default_pad_id
+        input_src_char_dataset = tf.data.Dataset.from_tensors(default_dataset_tensor).repeat(data_size_placeholder)
+    
+    if trg_word_feat_enable == True:
+        trg_word_pad_id = tf.cast(trg_word_vocab_index.lookup(tf.constant(trg_word_pad)), dtype=tf.int32)
+    else:
+        trg_word_pad_id = default_pad_id
         input_trg_word_dataset = tf.data.Dataset.from_tensors(default_dataset_tensor).repeat(data_size_placeholder)
     
-    if char_feat_enable == True:
-        char_pad_id = tf.cast(char_vocab_index.lookup(tf.constant(char_pad)), dtype=tf.int32)
+    if trg_char_feat_enable == True:
+        trg_char_pad_id = tf.cast(trg_char_vocab_index.lookup(tf.constant(trg_char_pad)), dtype=tf.int32)
     else:
-        char_pad_id = default_pad_id
-        input_src_char_dataset = tf.data.Dataset.from_tensors(default_dataset_tensor).repeat(data_size_placeholder)
+        trg_char_pad_id = default_pad_id
         input_trg_char_dataset = tf.data.Dataset.from_tensors(default_dataset_tensor).repeat(data_size_placeholder)
         
     dataset = tf.data.Dataset.zip((input_src_word_dataset, input_src_char_dataset,
@@ -69,25 +85,31 @@ def create_dynamic_pipeline(input_src_word_dataset,
     iterator = dataset.make_initializable_iterator()
     batch_data = iterator.get_next()
     
-    if word_feat_enable == True:
+    if src_word_feat_enable == True:
         input_src_word = batch_data[0]
-        input_src_word_mask = tf.cast(tf.not_equal(batch_data[0], word_pad_id), dtype=tf.float32)
-        input_trg_word = batch_data[2]
-        input_trg_word_mask = tf.cast(tf.not_equal(batch_data[2], word_pad_id), dtype=tf.float32)
+        input_src_word_mask = tf.cast(tf.not_equal(batch_data[0], src_word_pad_id), dtype=tf.float32)
     else:
         input_src_word = None
         input_src_word_mask = None
-        input_trg_word = None
-        input_trg_word_mask = None
     
-    if char_feat_enable == True:
+    if src_char_feat_enable == True:
         input_src_char = batch_data[1]
-        input_src_char_mask = tf.cast(tf.not_equal(batch_data[1], char_pad_id), dtype=tf.float32)
-        input_trg_char = batch_data[3]
-        input_trg_char_mask = tf.cast(tf.not_equal(batch_data[3], char_pad_id), dtype=tf.float32)
+        input_src_char_mask = tf.cast(tf.not_equal(batch_data[1], src_char_pad_id), dtype=tf.float32)
     else:
         input_src_char = None
         input_src_char_mask = None
+    
+    if trg_word_feat_enable == True:
+        input_trg_word = batch_data[2]
+        input_trg_word_mask = tf.cast(tf.not_equal(batch_data[2], trg_word_pad_id), dtype=tf.float32)
+    else:
+        input_trg_word = None
+        input_trg_word_mask = None
+    
+    if trg_char_feat_enable == True:
+        input_trg_char = batch_data[3]
+        input_trg_char_mask = tf.cast(tf.not_equal(batch_data[3], trg_char_pad_id), dtype=tf.float32)
+    else:
         input_trg_char = None
         input_trg_char_mask = None
     
@@ -109,12 +131,18 @@ def create_data_pipeline(input_src_word_dataset,
                          input_trg_word_dataset,
                          input_trg_char_dataset,
                          input_label_dataset,
-                         word_vocab_index,
-                         word_pad,
-                         word_feat_enable,
-                         char_vocab_index,
-                         char_pad,
-                         char_feat_enable,
+                         src_word_vocab_index,
+                         src_word_pad,
+                         src_word_feat_enable,
+                         src_char_vocab_index,
+                         src_char_pad,
+                         src_char_feat_enable,
+                         trg_word_vocab_index,
+                         trg_word_pad,
+                         trg_word_feat_enable,
+                         trg_char_vocab_index,
+                         trg_char_pad,
+                         trg_char_feat_enable,
                          random_seed,
                          enable_shuffle,
                          buffer_size,
@@ -124,18 +152,28 @@ def create_data_pipeline(input_src_word_dataset,
     default_pad_id = tf.constant(0, shape=[], dtype=tf.int32)
     default_dataset_tensor = tf.constant(0, shape=[1,1], dtype=tf.int32)
     
-    if word_feat_enable == True:
-        word_pad_id = tf.cast(word_vocab_index.lookup(tf.constant(word_pad)), dtype=tf.int32)
+    if src_word_feat_enable == True:
+        src_word_pad_id = tf.cast(src_word_vocab_index.lookup(tf.constant(src_word_pad)), dtype=tf.int32)
     else:
-        word_pad_id = default_pad_id
+        src_word_pad_id = default_pad_id
         input_src_word_dataset = tf.data.Dataset.from_tensors(default_dataset_tensor).repeat(data_size)
+    
+    if src_char_feat_enable == True:
+        src_char_pad_id = tf.cast(src_char_vocab_index.lookup(tf.constant(src_char_pad)), dtype=tf.int32)
+    else:
+        src_char_pad_id = default_pad_id
+        input_src_char_dataset = tf.data.Dataset.from_tensors(default_dataset_tensor).repeat(data_size)
+    
+    if trg_word_feat_enable == True:
+        trg_word_pad_id = tf.cast(trg_word_vocab_index.lookup(tf.constant(trg_word_pad)), dtype=tf.int32)
+    else:
+        trg_word_pad_id = default_pad_id
         input_trg_word_dataset = tf.data.Dataset.from_tensors(default_dataset_tensor).repeat(data_size)
     
-    if char_feat_enable == True:
-        char_pad_id = tf.cast(char_vocab_index.lookup(tf.constant(char_pad)), dtype=tf.int32)
+    if trg_char_feat_enable == True:
+        trg_char_pad_id = tf.cast(trg_char_vocab_index.lookup(tf.constant(trg_char_pad)), dtype=tf.int32)
     else:
-        char_pad_id = default_pad_id
-        input_src_char_dataset = tf.data.Dataset.from_tensors(default_dataset_tensor).repeat(data_size)
+        trg_char_pad_id = default_pad_id
         input_trg_char_dataset = tf.data.Dataset.from_tensors(default_dataset_tensor).repeat(data_size)
     
     dataset = tf.data.Dataset.zip((input_src_word_dataset, input_src_char_dataset,
@@ -150,25 +188,31 @@ def create_data_pipeline(input_src_word_dataset,
     iterator = dataset.make_initializable_iterator()
     batch_data = iterator.get_next()
     
-    if word_feat_enable == True:
+    if src_word_feat_enable == True:
         input_src_word = batch_data[0]
-        input_src_word_mask = tf.cast(tf.not_equal(batch_data[0], word_pad_id), dtype=tf.float32)
-        input_trg_word = batch_data[2]
-        input_trg_word_mask = tf.cast(tf.not_equal(batch_data[2], word_pad_id), dtype=tf.float32)
+        input_src_word_mask = tf.cast(tf.not_equal(batch_data[0], src_word_pad_id), dtype=tf.float32)
     else:
         input_src_word = None
         input_src_word_mask = None
-        input_trg_word = None
-        input_trg_word_mask = None
     
-    if char_feat_enable == True:
+    if src_char_feat_enable == True:
         input_src_char = batch_data[1]
-        input_src_char_mask = tf.cast(tf.not_equal(batch_data[1], char_pad_id), dtype=tf.float32)
-        input_trg_char = batch_data[3]
-        input_trg_char_mask = tf.cast(tf.not_equal(batch_data[3], char_pad_id), dtype=tf.float32)
+        input_src_char_mask = tf.cast(tf.not_equal(batch_data[1], src_char_pad_id), dtype=tf.float32)
     else:
         input_src_char = None
         input_src_char_mask = None
+    
+    if trg_word_feat_enable == True:
+        input_trg_word = batch_data[2]
+        input_trg_word_mask = tf.cast(tf.not_equal(batch_data[2], trg_word_pad_id), dtype=tf.float32)
+    else:
+        input_trg_word = None
+        input_trg_word_mask = None
+    
+    if trg_char_feat_enable == True:
+        input_trg_char = batch_data[3]
+        input_trg_char_mask = tf.cast(tf.not_equal(batch_data[3], trg_char_pad_id), dtype=tf.float32)
+    else:
         input_trg_char = None
         input_trg_char_mask = None
     
@@ -185,15 +229,15 @@ def create_data_pipeline(input_src_word_dataset,
         input_label_placeholder=None, data_size_placeholder=None, batch_size_placeholder=None)
     
 def create_text_dataset(input_data_set,
-                       word_vocab_index,
-                       word_max_size,
-                       word_pad,
-                       word_feat_enable,
-                       char_vocab_index,
-                       char_max_size,
-                       char_pad,
-                       char_feat_enable,
-                       num_parallel):
+                        word_vocab_index,
+                        word_max_size,
+                        word_pad,
+                        word_feat_enable,
+                        char_vocab_index,
+                        char_max_size,
+                        char_pad,
+                        char_feat_enable,
+                        num_parallel):
     """create word/char-level dataset for input source data"""
     dataset = input_data_set
     
