@@ -3,7 +3,9 @@ import collections
 import numpy as np
 import tensorflow as tf
 
+from model.conv_enc import *
 from model.seq_enc import *
+from model.att_enc import *
 from util.data_util import *
 
 __all__ = ["TrainModel", "InferModel",
@@ -213,8 +215,12 @@ def create_infer_model(logger,
             input_response=input_trg_data, input_label=input_label_data)
 
 def get_model_creator(model_type):
-    if model_type == "seq_enc":
+    if model_type == "conv_enc":
+        model_creator = ConvolutionEncoder
+    elif model_type == "seq_enc":
         model_creator = SequenceEncoder
+    elif model_type == "att_enc":
+        model_creator = AttentionEncoder
     else:
         raise ValueError("can not create model with unsupported model type {0}".format(model_type))
     
