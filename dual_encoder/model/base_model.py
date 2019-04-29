@@ -19,7 +19,7 @@ class InferResult(collections.namedtuple("InferResult",
     pass
 
 class BaseModel(object):
-    """contextual modeling base model"""
+    """dual encoder base model"""
     def __init__(self,
                  logger,
                  hyperparams,
@@ -27,7 +27,7 @@ class BaseModel(object):
                  external_data,
                  mode="train",
                  scope="base"):
-        """initialize contextual modeling base model"""
+        """initialize dual encoder base model"""
         self.logger = logger
         self.hyperparams = hyperparams
         self.data_pipeline = data_pipeline
