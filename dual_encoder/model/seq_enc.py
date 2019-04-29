@@ -216,6 +216,54 @@ class SequenceEncoder(BaseModel):
         
         return input_src_feat, input_src_feat_mask, input_trg_feat, input_trg_feat_mask
     
+    def _build_understanding_layer(self,
+                                   input_src_feat,
+                                   input_src_feat_mask,
+                                   input_trg_feat,
+                                   input_trg_feat_mask):
+        """build understanding layer for sequence encoder model"""
+        pass
+    
+    def _build_interaction_layer(self,
+                                 input_src_understanding,
+                                 input_src_understanding_mask,
+                                 input_trg_understanding,
+                                 input_trg_understanding_mask):
+        """build interaction layer for sequence encoder model"""
+        pass
+    
+    def _build_matching_layer(self,
+                              input_src_understanding,
+                              input_src_understanding_mask,
+                              input_trg_understanding,
+                              input_trg_understanding_mask,
+                              input_src2trg_interaction,
+                              input_src2trg_interaction_mask,
+                              input_trg2src_interaction,
+                              input_trg2src_interaction_mask):
+        """build matching layer for sequence encoder model"""
+        pass
+    
+    def _build_graph(self,
+                     input_src_word,
+                     input_src_word_mask,
+                     input_src_char,
+                     input_src_char_mask,
+                     input_trg_word,
+                     input_trg_word_mask,
+                     input_trg_char,
+                     input_trg_char_mask):
+        """build graph for sequence encoder model"""
+        pass
+    
+    def _compute_loss(self,
+                      label,
+                      label_mask,
+                      predict,
+                      predict_mask):
+        """compute optimization loss"""
+        pass
+    
     def save(self,
              sess,
              global_step,
