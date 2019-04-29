@@ -12,7 +12,7 @@ __all__ = ["create_default_hyperparams", "load_hyperparams",
 
 def create_default_hyperparams(config_type):
     """create default hyperparameters"""
-    if config_type == "default":
+    if config_type == "seq_enc":
         hyperparams = tf.contrib.training.HParams(
             data_train_dual_file="",
             data_train_dual_file_type="",
@@ -93,7 +93,7 @@ def create_default_hyperparams(config_type):
             train_optimizer_adam_beta_1=0.9,
             train_optimizer_adam_beta_2=0.999,
             train_optimizer_adam_epsilon=1e-08,
-            model_type="default",
+            model_type="seq_enc",
             model_scope="dual_encoder",
             model_representation_src_word_embed_dim=300,
             model_representation_src_word_dropout=0.1,
