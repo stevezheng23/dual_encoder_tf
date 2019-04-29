@@ -14,19 +14,19 @@ from util.layer_util import *
 
 from model.base_model import *
 
-__all__ = ["SequenceEncoder"]
+__all__ = ["AttentionEncoder"]
 
-class SequenceEncoder(BaseModel):
-    """sequence encoder model"""
+class AttentionEncoder(BaseModel):
+    """attention encoder model"""
     def __init__(self,
                  logger,
                  hyperparams,
                  data_pipeline,
                  external_data,
                  mode="train",
-                 scope="seq_enc"):
-        """initialize sequence encoder model"""
-        super(SequenceEncoder, self).__init__(logger=logger, hyperparams=hyperparams,
+                 scope="att_enc"):
+        """initialize attention encoder model"""
+        super(AttentionEncoder, self).__init__(logger=logger, hyperparams=hyperparams,
             data_pipeline=data_pipeline, external_data=external_data, mode=mode, scope=scope)
         
         with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
