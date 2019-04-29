@@ -57,6 +57,165 @@ class ConvolutionEncoder(BaseModel):
                 self.ckpt_debug_saver = tf.train.Saver()
                 self.ckpt_epoch_saver = tf.train.Saver(max_to_keep=self.hyperparams.train_num_epoch)   
     
+    def _build_representation_layer(self,
+                                    input_src_word,
+                                    input_src_word_mask,
+                                    input_src_char,
+                                    input_src_char_mask,
+                                    input_trg_word,
+                                    input_trg_word_mask,
+                                    input_trg_char,
+                                    input_trg_char_mask):
+        """build representation layer for convolution encoder model"""
+        src_word_vocab_size = self.hyperparams.data_src_word_vocab_size
+        src_word_embed_dim = self.hyperparams.model_representation_src_word_embed_dim
+        src_word_dropout = self.hyperparams.model_representation_src_word_dropout if self.mode == "train" else 0.0
+        src_word_embed_pretrained = self.hyperparams.model_representation_src_word_embed_pretrained
+        src_word_feat_trainable = self.hyperparams.model_representation_src_word_feat_trainable
+        src_word_feat_enable = self.hyperparams.model_representation_src_word_feat_enable
+        src_char_vocab_size = self.hyperparams.data_src_char_vocab_size
+        src_char_embed_dim = self.hyperparams.model_representation_src_char_embed_dim
+        src_char_unit_dim = self.hyperparams.model_representation_src_char_unit_dim
+        src_char_window_size = self.hyperparams.model_representation_src_char_window_size
+        src_char_hidden_activation = self.hyperparams.model_representation_src_char_hidden_activation
+        src_char_dropout = self.hyperparams.model_representation_src_char_dropout if self.mode == "train" else 0.0
+        src_char_pooling_type = self.hyperparams.model_representation_src_char_pooling_type
+        src_char_feat_trainable = self.hyperparams.model_representation_src_char_feat_trainable
+        src_char_feat_enable = self.hyperparams.model_representation_src_char_feat_enable
+        src_fusion_type = self.hyperparams.model_representation_src_fusion_type
+        src_fusion_num_layer = self.hyperparams.model_representation_src_fusion_num_layer
+        src_fusion_unit_dim = self.hyperparams.model_representation_src_fusion_unit_dim
+        src_fusion_hidden_activation = self.hyperparams.model_representation_src_fusion_hidden_activation
+        src_fusion_dropout = self.hyperparams.model_representation_src_fusion_dropout if self.mode == "train" else 0.0
+        src_fusion_trainable = self.hyperparams.model_representation_src_fusion_trainable
+        trg_word_vocab_size = self.hyperparams.data_trg_word_vocab_size
+        trg_word_embed_dim = self.hyperparams.model_representation_trg_word_embed_dim
+        trg_word_dropout = self.hyperparams.model_representation_trg_word_dropout if self.mode == "train" else 0.0
+        trg_word_embed_pretrained = self.hyperparams.model_representation_trg_word_embed_pretrained
+        trg_word_feat_trainable = self.hyperparams.model_representation_trg_word_feat_trainable
+        trg_word_feat_enable = self.hyperparams.model_representation_trg_word_feat_enable
+        trg_char_vocab_size = self.hyperparams.data_trg_char_vocab_size
+        trg_char_embed_dim = self.hyperparams.model_representation_trg_char_embed_dim
+        trg_char_unit_dim = self.hyperparams.model_representation_trg_char_unit_dim
+        trg_char_window_size = self.hyperparams.model_representation_trg_char_window_size
+        trg_char_hidden_activation = self.hyperparams.model_representation_trg_char_hidden_activation
+        trg_char_dropout = self.hyperparams.model_representation_trg_char_dropout if self.mode == "train" else 0.0
+        trg_char_pooling_type = self.hyperparams.model_representation_trg_char_pooling_type
+        trg_char_feat_trainable = self.hyperparams.model_representation_trg_char_feat_trainable
+        trg_char_feat_enable = self.hyperparams.model_representation_trg_char_feat_enable
+        trg_fusion_type = self.hyperparams.model_representation_trg_fusion_type
+        trg_fusion_num_layer = self.hyperparams.model_representation_trg_fusion_num_layer
+        trg_fusion_unit_dim = self.hyperparams.model_representation_trg_fusion_unit_dim
+        trg_fusion_hidden_activation = self.hyperparams.model_representation_trg_fusion_hidden_activation
+        trg_fusion_dropout = self.hyperparams.model_representation_trg_fusion_dropout if self.mode == "train" else 0.0
+        trg_fusion_trainable = self.hyperparams.model_representation_trg_fusion_trainable
+        share_representation = self.hyperparams.model_share_representation
+        
+        with tf.variable_scope("representation", reuse=tf.AUTO_REUSE):
+            input_src_feat_list = []
+            input_src_feat_mask_list = []
+            input_trg_feat_list = []
+            input_trg_feat_mask_list = []
+            
+            if src_word_feat_enable == True:
+                self.logger.log_print("# build word-level source representation layer")
+                src_word_feat_layer = WordFeat(vocab_size=src_word_vocab_size, embed_dim=src_word_embed_dim,
+                    dropout=src_word_dropout, pretrained=src_word_embed_pretrained, embedding=self.src_word_embedding,
+                    num_gpus=self.num_gpus, default_gpu_id=self.default_gpu_id, regularizer=self.regularizer, 
+                    random_seed=self.random_seed, trainable=src_word_feat_trainable)
+                
+                (input_src_word_feat,
+                    input_src_word_feat_mask) = src_word_feat_layer(input_src_word, input_src_word_mask)
+                input_src_feat_list.append(input_src_word_feat)
+                input_src_feat_mask_list.append(input_src_word_feat_mask)
+                
+                src_word_unit_dim = src_word_embed_dim
+                self.src_word_embedding_placeholder = src_word_feat_layer.get_embedding_placeholder()
+            else:
+                src_word_unit_dim = 0
+                self.src_word_embedding_placeholder = None
+            
+            if src_char_feat_enable == True:
+                self.logger.log_print("# build char-level source representation layer")
+                src_char_feat_layer = CharFeat(vocab_size=src_char_vocab_size,
+                    embed_dim=src_char_embed_dim, unit_dim=src_char_unit_dim, window_size=src_char_window_size,
+                    activation=src_char_hidden_activation, pooling_type=src_char_pooling_type, dropout=src_char_dropout,
+                    num_gpus=self.num_gpus, default_gpu_id=self.default_gpu_id, regularizer=self.regularizer,
+                    random_seed=self.random_seed, trainable=src_char_feat_trainable)
+                
+                (input_src_char_feat,
+                    input_src_char_feat_mask) = src_char_feat_layer(input_src_char, input_src_char_mask)
+                
+                input_src_feat_list.append(input_src_char_feat)
+                input_src_feat_mask_list.append(input_src_char_feat_mask)
+            else:
+                src_char_unit_dim = 0
+            
+            self.logger.log_print("# build source representation fusion layer")
+            src_feat_unit_dim = src_word_unit_dim + src_char_unit_dim
+            src_feat_fusion_layer = FusionModule(input_unit_dim=src_feat_unit_dim, output_unit_dim=src_fusion_unit_dim,
+                fusion_type=src_fusion_type, num_layer=src_fusion_num_layer, activation=src_fusion_hidden_activation,
+                dropout=src_fusion_dropout, num_gpus=self.num_gpus, default_gpu_id=self.default_gpu_id,
+                regularizer=self.regularizer, random_seed=self.random_seed, trainable=src_fusion_trainable)
+            
+            (input_src_feat,
+                input_src_feat_mask) = src_feat_fusion_layer(input_src_feat_list, input_src_feat_mask_list)
+            
+            if trg_word_feat_enable == True:
+                self.logger.log_print("# build word-level target representation layer")
+                if share_representation == True:
+                    trg_word_feat_layer = src_word_feat_layer
+                else:
+                    trg_word_feat_layer = WordFeat(vocab_size=trg_word_vocab_size, embed_dim=trg_word_embed_dim,
+                        dropout=trg_word_dropout, pretrained=trg_word_embed_pretrained, embedding=self.trg_word_embedding,
+                        num_gpus=self.num_gpus, default_gpu_id=self.default_gpu_id, regularizer=self.regularizer, 
+                        random_seed=self.random_seed, trainable=trg_word_feat_trainable)
+                
+                (input_trg_word_feat,
+                    input_trg_word_feat_mask) = trg_word_feat_layer(input_trg_word, input_trg_word_mask)
+                input_trg_feat_list.append(input_trg_word_feat)
+                input_trg_feat_mask_list.append(input_trg_word_feat_mask)
+                
+                trg_word_unit_dim = trg_word_embed_dim
+                self.trg_word_embedding_placeholder = trg_word_feat_layer.get_embedding_placeholder()
+            else:
+                trg_word_unit_dim = 0
+                self.trg_word_embedding_placeholder = None
+            
+            if trg_char_feat_enable == True:
+                self.logger.log_print("# build char-level target representation layer")
+                if share_representation == True:
+                    trg_char_feat_layer = src_char_feat_layer
+                else:
+                    trg_char_feat_layer = CharFeat(vocab_size=trg_char_vocab_size,
+                        embed_dim=trg_char_embed_dim, unit_dim=trg_char_unit_dim, window_size=trg_char_window_size,
+                        activation=trg_char_hidden_activation, pooling_type=trg_char_pooling_type, dropout=trg_char_dropout,
+                        num_gpus=self.num_gpus, default_gpu_id=self.default_gpu_id, regularizer=self.regularizer,
+                        random_seed=self.random_seed, trainable=trg_char_feat_trainable)
+                
+                (input_trg_char_feat,
+                    input_trg_char_feat_mask) = trg_char_feat_layer(input_trg_char, input_trg_char_mask)
+                
+                input_trg_feat_list.append(input_trg_char_feat)
+                input_trg_feat_mask_list.append(input_trg_char_feat_mask)
+            else:
+                trg_char_unit_dim = 0
+            
+            self.logger.log_print("# build target representation fusion layer")
+            if share_representation == True:
+                trg_feat_fusion_layer = src_feat_fusion_layer
+            else:
+                trg_feat_unit_dim = trg_word_unit_dim + trg_char_unit_dim
+                trg_feat_fusion_layer = FusionModule(input_unit_dim=trg_feat_unit_dim, output_unit_dim=trg_fusion_unit_dim,
+                    fusion_type=trg_fusion_type, num_layer=trg_fusion_num_layer, activation=trg_fusion_hidden_activation,
+                    dropout=trg_fusion_dropout, num_gpus=self.num_gpus, default_gpu_id=self.default_gpu_id,
+                    regularizer=self.regularizer, random_seed=self.random_seed, trainable=trg_fusion_trainable)
+            
+            (input_trg_feat,
+                input_trg_feat_mask) = trg_feat_fusion_layer(input_trg_feat_list, input_trg_feat_mask_list)
+        
+        return input_src_feat, input_src_feat_mask, input_trg_feat, input_trg_feat_mask
+    
     def save(self,
              sess,
              global_step,
