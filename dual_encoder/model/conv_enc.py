@@ -14,19 +14,19 @@ from util.layer_util import *
 
 from model.base_model import *
 
-__all__ = ["SequenceEncoder"]
+__all__ = ["ConvolutionEncoder"]
 
-class SequenceEncoder(BaseModel):
-    """sequence encoder model"""
+class ConvolutionEncoder(BaseModel):
+    """convolution encoder model"""
     def __init__(self,
                  logger,
                  hyperparams,
                  data_pipeline,
                  external_data,
                  mode="train",
-                 scope="seq_enc"):
-        """initialize sequence encoder model"""
-        super(SequenceEncoder, self).__init__(logger=logger, hyperparams=hyperparams,
+                 scope="conv_enc"):
+        """initialize convolution encoder model"""
+        super(ConvolutionEncoder, self).__init__(logger=logger, hyperparams=hyperparams,
             data_pipeline=data_pipeline, external_data=external_data, mode=mode, scope=scope)
         
         with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):

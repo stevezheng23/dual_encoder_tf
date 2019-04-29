@@ -1,1 +1,1 @@
-__all__ = ["base_model", "seq_enc"]
+__all__ = ["base_model", "conv_enc", "seq_enc", "att_enc"]
