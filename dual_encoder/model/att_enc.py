@@ -222,7 +222,72 @@ class AttentionEncoder(BaseModel):
                                    input_trg_feat,
                                    input_trg_feat_mask):
         """build understanding layer for sequence encoder model"""
-        pass
+        src_representation_unit_dim = self.hyperparams.model_representation_src_fusion_unit_dim
+        src_understanding_num_layer = self.hyperparams.model_understanding_src_num_layer
+        src_understanding_num_head = self.hyperparams.model_understanding_src_num_head
+        src_understanding_unit_dim = self.hyperparams.model_understanding_src_unit_dim
+        src_understanding_hidden_activation = self.hyperparams.model_understanding_src_hidden_activation
+        src_understanding_dropout = self.hyperparams.model_understanding_src_dropout if self.mode == "train" else 0.0
+        src_understanding_att_dropout = self.hyperparams.model_understanding_src_attention_dropout if self.mode == "train" else 0.0
+        src_understanding_layer_dropout = self.hyperparams.model_understanding_src_layer_dropout if self.mode == "train" else 0.0
+        src_understanding_trainable = self.hyperparams.model_understanding_src_trainable
+        trg_representation_unit_dim = self.hyperparams.model_representation_trg_fusion_unit_dim
+        trg_understanding_num_layer = self.hyperparams.model_understanding_trg_num_layer
+        trg_understanding_num_head = self.hyperparams.model_understanding_trg_num_head
+        trg_understanding_unit_dim = self.hyperparams.model_understanding_trg_unit_dim
+        trg_understanding_hidden_activation = self.hyperparams.model_understanding_trg_hidden_activation
+        trg_understanding_dropout = self.hyperparams.model_understanding_trg_dropout if self.mode == "train" else 0.0
+        trg_understanding_att_dropout = self.hyperparams.model_understanding_trg_attention_dropout if self.mode == "train" else 0.0
+        trg_understanding_layer_dropout = self.hyperparams.model_understanding_trg_layer_dropout if self.mode == "train" else 0.0
+        trg_understanding_trainable = self.hyperparams.model_understanding_trg_trainable
+        share_understanding = self.hyperparams.model_share_understanding
+        
+        with tf.variable_scope("understanding", reuse=tf.AUTO_REUSE):
+            with tf.variable_scope("source", reuse=tf.AUTO_REUSE):
+                self.logger.log_print("# build source understanding layer")
+                src_fusion_layer = FusionModule(input_unit_dim=src_representation_unit_dim,
+                    output_unit_dim=src_understanding_unit_dim, fusion_type="concate", num_layer=1, activation=None, dropout=0.0,
+                    num_gpus=self.num_gpus, default_gpu_id=self.default_gpu_id, regularizer=self.regularizer,
+                    random_seed=self.random_seed, trainable=src_understanding_trainable)
+                src_understanding_layer = StackedAttentionBlock(num_layer=src_understanding_num_layer,
+                    num_head=src_understanding_num_head, unit_dim=src_understanding_unit_dim,
+                    activation=src_understanding_hidden_activation, dropout=src_understanding_dropout,
+                    att_dropout=src_understanding_att_dropout, layer_dropout=src_understanding_layer_dropout,
+                    num_gpus=self.num_gpus, default_gpu_id=self.default_gpu_id, regularizer=self.regularizer,
+                    random_seed=self.random_seed, trainable=src_understanding_trainable)
+                
+                (input_src_fusion,
+                    input_src_fusion_mask) = src_fusion_layer([input_src_feat], [input_src_feat_mask])
+                (input_src_understanding_list,
+                    input_src_understanding_mask_list) = src_understanding_layer(input_src_fusion, input_src_fusion_mask)
+                input_src_understanding = input_src_understanding_list[-1]
+                input_src_understanding_mask = input_src_understanding_mask_list[-1]
+            
+            with tf.variable_scope("target", reuse=tf.AUTO_REUSE):
+                self.logger.log_print("# build target understanding layer")
+                if share_understanding == True:
+                    trg_fusion_layer = src_fusion_layer
+                    trg_understanding_layer = src_understanding_layer
+                else:
+                    trg_fusion_layer = FusionModule(input_unit_dim=trg_representation_unit_dim,
+                        output_unit_dim=trg_understanding_unit_dim, fusion_type="concate", num_layer=1, activation=None, dropout=0.0,
+                        num_gpus=self.num_gpus, default_gpu_id=self.default_gpu_id, regularizer=self.regularizer,
+                        random_seed=self.random_seed, trainable=trg_understanding_trainable)
+                    trg_understanding_layer = StackedAttentionBlock(num_layer=trg_understanding_num_layer,
+                        num_head=trg_understanding_num_head, unit_dim=trg_understanding_unit_dim,
+                        activation=trg_understanding_hidden_activation, dropout=trg_understanding_dropout,
+                        att_dropout=trg_understanding_att_dropout, layer_dropout=trg_understanding_layer_dropout,
+                        num_gpus=self.num_gpus, default_gpu_id=self.default_gpu_id, regularizer=self.regularizer,
+                        random_seed=self.random_seed, trainable=trg_understanding_trainable)
+                
+                (input_trg_fusion,
+                    input_trg_fusion_mask) = trg_fusion_layer([input_trg_feat], [input_trg_feat_mask])
+                (input_trg_understanding_list,
+                    input_trg_understanding_mask_list) = trg_understanding_layer(input_trg_fusion, input_trg_fusion_mask)
+                input_trg_understanding = input_trg_understanding_list[-1]
+                input_trg_understanding_mask = input_trg_understanding_mask_list[-1]
+        
+        return input_src_understanding, input_src_understanding_mask, input_trg_understanding, input_trg_understanding_mask
     
     def _build_interaction_layer(self,
                                  input_src_understanding,
@@ -326,6 +391,119 @@ class AttentionEncoder(BaseModel):
             return ckpt_state.all_model_checkpoint_paths
         else:
             raise ValueError("unsupported checkpoint type {0}".format(ckpt_type))
+
+class AttentionBlock(object):
+    """attention-block layer"""
+    def __init__(self,
+                 num_head,
+                 unit_dim,
+                 activation,
+                 dropout,
+                 att_dropout,
+                 layer_dropout,
+                 num_gpus=1,
+                 default_gpu_id=0,
+                 regularizer=None,
+                 random_seed=0,
+                 trainable=True,
+                 scope="att_block"):
+        """initialize attention-block layer"""
+        self.num_head = num_head
+        self.unit_dim = unit_dim
+        self.activation = activation
+        self.dropout = dropout
+        self.att_dropout = att_dropout
+        self.sublayer_index, self.num_sublayer, self.layer_dropout = layer_dropout
+        self.num_gpus = num_gpus
+        self.default_gpu_id = default_gpu_id
+        self.regularizer = regularizer
+        self.random_seed = random_seed
+        self.trainable = trainable
+        self.scope = scope
+        
+        with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
+            self.position_layer = create_position_layer("sin_pos", 0, 0, 1, 10000,
+                self.num_gpus, self.default_gpu_id, self.regularizer, self.random_seed, self.trainable)
+            
+            att_layer_dropout = self.layer_dropout * float(self.sublayer_index) / self.num_sublayer
+            self.attention_layer = create_attention_layer("multi_head_att", self.unit_dim, self.unit_dim,
+                self.unit_dim, self.num_head, "scaled_dot", self.dropout, self.att_dropout, att_layer_dropout,
+                True, True, True, None, self.num_gpus, self.default_gpu_id, self.regularizer, self.random_seed, self.trainable)
+            
+            dense_layer_dropout = [self.layer_dropout * float(self.sublayer_index + 1) / self.num_sublayer]
+            self.dense_layer = create_dense_layer("double", 1, self.unit_dim, 1, self.activation, [self.dropout],
+                dense_layer_dropout, True, True, True, num_gpus, default_gpu_id, self.regularizer, self.random_seed, self.trainable)
+    
+    def __call__(self,
+                 input_data,
+                 input_mask):
+        """call attention-block layer"""
+        with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
+            input_attention, input_attention_mask = self.attention_layer(input_data, input_data, input_mask, input_mask)
+            output_block, output_block_mask = self.dense_layer(input_attention, input_attention_mask)
+        
+        return output_block, output_block_mask
+
+class StackedAttentionBlock(object):
+    """stacked attention-block layer"""
+    def __init__(self,
+                 num_layer,
+                 num_head,
+                 unit_dim,
+                 activation,
+                 dropout,
+                 att_dropout,
+                 layer_dropout,
+                 num_gpus=1,
+                 default_gpu_id=0,
+                 regularizer=None,
+                 random_seed=0,
+                 trainable=True,
+                 scope="stacked_att_block"):
+        """initialize stacked attention-block layer"""
+        self.num_layer = num_layer
+        self.num_head = num_head
+        self.unit_dim = unit_dim
+        self.activation = activation
+        self.dropout = dropout
+        self.att_dropout = att_dropout
+        self.layer_dropout = layer_dropout
+        self.num_gpus = num_gpus
+        self.default_gpu_id = default_gpu_id
+        self.regularizer = regularizer
+        self.random_seed = random_seed
+        self.trainable = trainable
+        self.scope = scope
+        
+        with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
+            self.block_layer_list = []
+            num_sublayer = 2 * self.num_layer
+            for i in range(self.num_layer):
+                layer_scope = "layer_{0}".format(i)
+                layer_dropout = (2 * i + 1, num_sublayer, self.layer_dropout)
+                block_layer = AttentionBlock(num_head=self.num_head, unit_dim=self.unit_dim, activation=self.activation,
+                    dropout=self.dropout, att_dropout=self.att_dropout, layer_dropout=layer_dropout,
+                    num_gpus=self.num_gpus, default_gpu_id=self.default_gpu_id, regularizer=self.regularizer,
+                    random_seed=self.random_seed, trainable=self.trainable, scope=layer_scope)
+                self.block_layer_list.append(block_layer)
+    
+    def __call__(self,
+                 input_data,
+                 input_mask):
+        """call stacked attention-block layer"""
+        with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
+            output_block_list = []
+            output_block_mask_list = []
+            input_block = input_data
+            input_block_mask = input_mask
+            for block_layer in self.block_layer_list:
+                output_block, output_block_mask = block_layer(input_block, input_block_mask)
+                output_block_list.append(output_block)
+                output_block_mask_list.append(output_block_mask)
+                input_block = output_block
+                input_block_mask = output_block_mask
+        
+        return output_block_list, output_block_mask_list
 
 class WordFeat(object):
     """word-level featurization layer"""
