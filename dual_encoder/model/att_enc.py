@@ -439,8 +439,9 @@ class AttentionBlock(object):
                  input_mask):
         """call attention-block layer"""
         with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
-            input_attention, input_attention_mask = self.attention_layer(input_data, input_data, input_mask, input_mask)
-            output_block, output_block_mask = self.dense_layer(input_attention, input_attention_mask)
+            input_pos, input_pos_mask = self.position_layer(input_data, input_mask)
+            input_att, input_att_mask = self.attention_layer(input_pos, input_pos, input_pos_mask, input_pos_mask)
+            output_block, output_block_mask = self.dense_layer(input_att, input_att_mask)
         
         return output_block, output_block_mask
 
