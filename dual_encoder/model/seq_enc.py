@@ -222,7 +222,49 @@ class SequenceEncoder(BaseModel):
                                    input_trg_feat,
                                    input_trg_feat_mask):
         """build understanding layer for sequence encoder model"""
-        pass
+        src_understanding_num_layer = self.hyperparams.model_understanding_src_num_layer
+        src_understanding_unit_dim = self.hyperparams.model_understanding_src_unit_dim
+        src_understanding_cell_type = self.hyperparams.model_understanding_src_cell_type
+        src_understanding_hidden_activation = self.hyperparams.model_understanding_src_hidden_activation
+        src_understanding_dropout = self.hyperparams.model_understanding_src_dropout if self.mode == "train" else 0.0
+        src_understanding_forget_bias = self.hyperparams.model_understanding_src_forget_bias
+        src_understanding_residual_connect = self.hyperparams.model_understanding_src_residual_connect
+        src_understanding_trainable = self.hyperparams.model_understanding_src_trainable
+        trg_understanding_num_layer = self.hyperparams.model_understanding_trg_num_layer
+        trg_understanding_unit_dim = self.hyperparams.model_understanding_trg_unit_dim
+        trg_understanding_cell_type = self.hyperparams.model_understanding_trg_cell_type
+        trg_understanding_hidden_activation = self.hyperparams.model_understanding_trg_hidden_activation
+        trg_understanding_dropout = self.hyperparams.model_understanding_trg_dropout if self.mode == "train" else 0.0
+        trg_understanding_forget_bias = self.hyperparams.model_understanding_trg_forget_bias
+        trg_understanding_residual_connect = self.hyperparams.model_understanding_trg_residual_connect
+        trg_understanding_trainable = self.hyperparams.model_understanding_trg_trainable
+        share_understanding = self.hyperparams.model_share_understanding
+        
+        with tf.variable_scope("understanding", reuse=tf.AUTO_REUSE):
+            with tf.variable_scope("source", reuse=tf.AUTO_REUSE):
+                self.logger.log_print("# build source understanding layer")
+                src_understanding_layer = create_recurrent_layer("bi", src_understanding_num_layer,
+                    src_understanding_unit_dim, src_understanding_cell_type, src_understanding_hidden_activation,
+                    src_understanding_dropout, src_understanding_forget_bias, src_understanding_residual_connect,
+                    None, self.num_gpus, self.default_gpu_id, self.random_seed, src_understanding_trainable)
+                
+                (input_src_understanding, input_src_understanding_mask,
+                    _, _) = src_understanding_layer(input_src_feat, input_src_feat_mask)
+            
+            with tf.variable_scope("target", reuse=tf.AUTO_REUSE):
+                self.logger.log_print("# build target understanding layer")
+                if share_understanding == True:
+                    trg_understanding_layer = src_understanding_layer
+                else:
+                    trg_understanding_layer = create_recurrent_layer("bi", trg_understanding_num_layer,
+                        trg_understanding_unit_dim, trg_understanding_cell_type, trg_understanding_hidden_activation,
+                        trg_understanding_dropout, trg_understanding_forget_bias, trg_understanding_residual_connect,
+                        None, self.num_gpus, self.default_gpu_id, self.random_seed, trg_understanding_trainable)
+                
+                (input_trg_understanding, input_trg_understanding_mask,
+                    _, _) = trg_understanding_layer(input_trg_feat, input_trg_feat_mask)
+        
+        return input_src_understanding, input_src_understanding_mask, input_trg_understanding, input_trg_understanding_mask
     
     def _build_interaction_layer(self,
                                  input_src_understanding,
