@@ -114,7 +114,7 @@
     "model_representation_trg_char_feat_enable": true,
     "model_representation_trg_fusion_type": "highway",
     "model_representation_trg_fusion_num_layer": 2,
-    "model_representation_trg_fusion_unit_dim": 100,
+    "model_representation_trg_fusion_unit_dim": 128,
     "model_representation_trg_fusion_hidden_activation": "relu",
     "model_representation_trg_fusion_dropout": 0.2,
     "model_representation_trg_fusion_trainable": true,
