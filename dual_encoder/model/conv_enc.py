@@ -221,7 +221,7 @@ class ConvolutionEncoder(BaseModel):
                                    input_src_feat_mask,
                                    input_trg_feat,
                                    input_trg_feat_mask):
-        """build understanding layer for sequence encoder model"""
+        """build understanding layer for convolution encoder model"""
         src_representation_unit_dim = self.hyperparams.model_representation_src_fusion_unit_dim
         src_understanding_num_layer = self.hyperparams.model_understanding_src_num_layer
         src_understanding_num_conv = self.hyperparams.model_understanding_src_num_conv
@@ -294,7 +294,7 @@ class ConvolutionEncoder(BaseModel):
                                  input_src_understanding_mask,
                                  input_trg_understanding,
                                  input_trg_understanding_mask):
-        """build interaction layer for sequence encoder model"""
+        """build interaction layer for convolution encoder model"""
         src_understanding_unit_dim = self.hyperparams.model_understanding_src_unit_dim
         trg_understanding_unit_dim = self.hyperparams.model_understanding_trg_unit_dim
         src2trg_interaction_attention_dim = self.hyperparams.model_interaction_src2trg_attention_dim
@@ -353,7 +353,7 @@ class ConvolutionEncoder(BaseModel):
                               input_src2trg_interaction_mask,
                               input_trg2src_interaction,
                               input_trg2src_interaction_mask):
-        """build matching layer for sequence encoder model"""
+        """build matching layer for convolution encoder model"""
         pass
     
     def _build_graph(self,
@@ -365,8 +365,26 @@ class ConvolutionEncoder(BaseModel):
                      input_trg_word_mask,
                      input_trg_char,
                      input_trg_char_mask):
-        """build graph for sequence encoder model"""
-        pass
+        """build graph for convolution encoder model"""
+        with tf.variable_scope("graph", reuse=tf.AUTO_REUSE):
+            (input_src_feat, input_src_feat_mask, input_trg_feat,
+                input_trg_feat_mask) = self._build_representation_layer(input_src_word,
+                    input_src_word_mask, input_src_char, input_src_char_mask, input_trg_word,
+                    input_trg_word_mask, input_trg_char, input_trg_char_mask)
+            
+            (input_src_understanding, input_src_understanding_mask, input_trg_understanding,
+                input_trg_understanding_mask) = self._build_understanding_layer(input_src_feat,
+                    input_src_feat_mask, input_trg_feat, input_trg_feat_mask)
+            
+            (input_src2trg_interaction, input_src2trg_interaction_mask, input_trg2src_interaction,
+                input_trg2src_interaction_mask) = self._build_interaction_layer(input_src_understanding,
+                    input_src_understanding_mask, input_trg_understanding, input_trg_understanding_mask)
+            
+            output_matching, output_matching_mask = self._build_matching_layer(input_src_understanding,
+                input_src_understanding_mask, input_trg_understanding, input_trg_understanding_mask, input_src2trg_interaction,
+                input_src2trg_interaction_mask, input_trg2src_interaction, input_trg2src_interaction_mask)
+            
+        return output_matching, output_matching_mask
     
     def _compute_loss(self,
                       label,
