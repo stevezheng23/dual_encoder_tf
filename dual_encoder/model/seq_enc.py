@@ -343,7 +343,25 @@ class SequenceEncoder(BaseModel):
                      input_trg_char,
                      input_trg_char_mask):
         """build graph for sequence encoder model"""
-        pass
+        with tf.variable_scope("graph", reuse=tf.AUTO_REUSE):
+            (input_src_feat, input_src_feat_mask, input_trg_feat,
+                input_trg_feat_mask) = self._build_representation_layer(input_src_word,
+                    input_src_word_mask, input_src_char, input_src_char_mask, input_trg_word,
+                    input_trg_word_mask, input_trg_char, input_trg_char_mask)
+            
+            (input_src_understanding, input_src_understanding_mask, input_trg_understanding,
+                input_trg_understanding_mask) = self._build_understanding_layer(input_src_feat,
+                    input_src_feat_mask, input_trg_feat, input_trg_feat_mask)
+            
+            (input_src2trg_interaction, input_src2trg_interaction_mask, input_trg2src_interaction,
+                input_trg2src_interaction_mask) = self._build_interaction_layer(input_src_understanding,
+                    input_src_understanding_mask, input_trg_understanding, input_trg_understanding_mask)
+            
+            output_matching, output_matching_mask = self._build_matching_layer(input_src_understanding,
+                input_src_understanding_mask, input_trg_understanding, input_trg_understanding_mask, input_src2trg_interaction,
+                input_src2trg_interaction_mask, input_trg2src_interaction, input_trg2src_interaction_mask)
+            
+        return output_matching, output_matching_mask
     
     def _compute_loss(self,
                       label,
