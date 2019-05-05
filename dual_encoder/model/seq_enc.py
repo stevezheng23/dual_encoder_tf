@@ -263,6 +263,10 @@ class SequenceEncoder(BaseModel):
                 
                 (input_trg_understanding, input_trg_understanding_mask,
                     _, _) = trg_understanding_layer(input_trg_feat, input_trg_feat_mask)
+            
+            (input_src_understanding, input_src_understanding_mask, input_trg_understanding,
+                input_trg_understanding_mask) = self.negative_sampling(input_src_understanding, input_src_understanding_mask,
+                    input_trg_understanding, input_trg_understanding_mask, self.batch_size, self.self.neg_num)
         
         return input_src_understanding, input_src_understanding_mask, input_trg_understanding, input_trg_understanding_mask
     
