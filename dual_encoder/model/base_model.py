@@ -176,7 +176,9 @@ class BaseModel(object):
     
     def _neg_sampling(self,
                       input_src_data,
+                      input_src_mask,
                       input_trg_data,
+                      input_trg_mask,
                       batch_size,
                       neg_num):
         """negative sampling"""
@@ -193,18 +195,25 @@ class BaseModel(object):
         src_max_length = input_src_shape[1]
         input_src_sample = tf.reshape(input_src_data, shape=[batch_size, 1, src_max_length, -1])
         input_src_sample = tf.tile(input_src_sample, multiples=[1, neg_num+1, 1, 1])
+        input_src_sample_mask = tf.reshape(input_src_mask, shape=[batch_size, 1, src_max_length, -1])
+        input_src_sample_mask = tf.tile(input_src_sample_mask, multiples=[1, neg_num+1, 1, 1])
         
         input_trg_sample_list = []
+        input_trg_sample_mask_list = []
         input_trg_shape = tf.shape(input_trg_data)
         trg_max_length = input_trg_shape[1]
         for sample_indice in sample_indice_list:
             input_trg_sample = tf.gather(input_trg_data, sample_indice, axis=0)
-            input_trg_sample = tf.reshape(input_src_data, shape=[1, neg_num+1, trg_max_length, -1])
+            input_trg_sample = tf.reshape(input_trg_sample, shape=[1, neg_num+1, trg_max_length, -1])
             input_trg_sample_list.append(input_trg_sample)
+            input_trg_sample_mask = tf.gather(input_trg_mask, sample_indice, axis=0)
+            input_trg_sample_mask = tf.reshape(input_trg_sample_mask, shape=[1, neg_num+1, trg_max_length, -1])
+            input_trg_sample_mask_list.append(input_trg_sample_mask)
         
         input_trg_sample = tf.concat(input_trg_sample_list, axis=0)
+        input_trg_sample_mask = tf.concat(input_trg_sample_mask_list, axis=0)
         
-        return input_src_sample, input_trg_sample
+        return input_src_sample, input_src_sample_mask, input_trg_sample, input_trg_sample_mask_list
     
     def train(self,
               sess,
