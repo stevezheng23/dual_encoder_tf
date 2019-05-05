@@ -386,46 +386,6 @@ class AttentionEncoder(BaseModel):
             
         return output_matching, output_matching_mask
     
-    def _neg_sampling(self,
-                      input_src_data,
-                      input_trg_data,
-                      batch_size,
-                      neg_num):
-        """negative sampling"""
-        sample_indice_list = []
-        for index in range(batch_size):
-            neg_num = min(batch_size-1, neg_num) 
-            sample_indice = np.arange(batch_size)
-            sample_indice.remove(index)
-            np.random.shuffle(sample_indice)
-            sample_indice = [index] + sample_indice[:neg_num]
-            sample_indice_list.append(sample_indice)
-        
-        input_src_shape = tf.shape(input_src_data)
-        src_max_length = input_src_shape[1]
-        input_src_sample = tf.reshape(input_src_data, shape=[batch_size, 1, src_max_length, -1])
-        input_src_sample = tf.tile(input_src_sample, multiples=[1, neg_num+1, 1, 1])
-        
-        input_trg_sample_list = []
-        input_trg_shape = tf.shape(input_trg_data)
-        trg_max_length = input_trg_shape[1]
-        for sample_indice in sample_indice_list:
-            input_trg_sample = tf.gather(input_trg_data, sample_indice, axis=0)
-            input_trg_sample = tf.reshape(input_src_data, shape=[1, neg_num+1, trg_max_length, -1])
-            input_trg_sample_list.append(input_trg_sample)
-        
-        input_trg_sample = tf.concat(input_trg_sample_list, axis=0)
-        
-        return input_src_sample, input_trg_sample
-    
-    def _compute_loss(self,
-                      label,
-                      label_mask,
-                      predict,
-                      predict_mask):
-        """compute optimization loss"""
-        pass
-    
     def save(self,
              sess,
              global_step,
