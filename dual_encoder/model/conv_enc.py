@@ -286,6 +286,10 @@ class ConvolutionEncoder(BaseModel):
                     input_trg_understanding_mask_list) = trg_understanding_layer(input_trg_fusion, input_trg_fusion_mask)
                 input_trg_understanding = input_trg_understanding_list[-1]
                 input_trg_understanding_mask = input_trg_understanding_mask_list[-1]
+            
+            (input_src_understanding, input_src_understanding_mask, input_trg_understanding,
+                input_trg_understanding_mask) = self.negative_sampling(input_src_understanding, input_src_understanding_mask,
+                    input_trg_understanding, input_trg_understanding_mask, self.batch_size, self.self.neg_num)
         
         return input_src_understanding, input_src_understanding_mask, input_trg_understanding, input_trg_understanding_mask
     

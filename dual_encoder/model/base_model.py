@@ -45,6 +45,7 @@ class BaseModel(object):
         self.word_embedding_placeholder = None
         
         self.batch_size = tf.size(tf.reduce_max(self.data_pipeline.input_label_mask, axis=-2))
+        self.neg_num = self.hyperparams.train_neg_num
         
         self.num_gpus = self.hyperparams.device_num_gpus
         self.default_gpu_id = self.hyperparams.device_default_gpu_id
