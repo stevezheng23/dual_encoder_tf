@@ -297,15 +297,16 @@ class SequenceEncoder(BaseModel):
             with tf.variable_scope("source2target", reuse=tf.AUTO_REUSE):
                 if src2trg_interaction_enable == True:
                     self.logger.log_print("# build source2target interaction layer")
-                    src2trg_interaction_layer = create_attention_layer("co_att",
+                    src2trg_interaction_layer = create_attention_layer("att",
                         src_understanding_unit_dim, trg_understanding_unit_dim,
                         src2trg_interaction_attention_dim, -1, src2trg_interaction_score_type,
                         src2trg_interaction_dropout, src2trg_interaction_att_dropout, 0.0,
                         False, False, False, None, self.num_gpus, self.default_gpu_id,
                         self.regularizer, self.random_seed, src2trg_interaction_trainable)
                     
-                    input_src2trg_interaction, input_src2trg_interaction_mask = src2trg_interaction_layer(input_src_understanding,
-                        input_trg_understanding, input_src_understanding_mask, input_trg_understanding_mask)
+                    (input_src2trg_interaction, input_src2trg_interaction_mask,
+                        _, _) = src2trg_interaction_layer(input_src_understanding, input_trg_understanding,
+                            input_src_understanding_mask, input_trg_understanding_mask)
                     
                     if share_interaction == True:
                         attention_matrix = src2trg_interaction_layer.get_attention_matrix()
@@ -313,15 +314,16 @@ class SequenceEncoder(BaseModel):
             with tf.variable_scope("target2source", reuse=tf.AUTO_REUSE):
                 if trg2src_interaction_enable == True:
                     self.logger.log_print("# build target2source interaction layer")
-                    trg2src_interaction_layer = create_attention_layer("co_att",
+                    trg2src_interaction_layer = create_attention_layer("att",
                         trg_understanding_unit_dim, src_understanding_unit_dim,
                         trg2src_interaction_attention_dim, -1, trg2src_interaction_score_type,
                         trg2src_interaction_dropout, trg2src_interaction_att_dropout, 0.0,
                         False, False, False, attention_matrix, self.num_gpus, self.default_gpu_id,
                         self.regularizer, self.random_seed, trg2src_interaction_trainable)
                     
-                    input_trg2src_interaction, input_trg2src_interaction_mask = trg2src_interaction_layer(input_trg_understanding,
-                        input_src_understanding, input_trg_understanding_mask, input_src_understanding_mask)
+                    (input_trg2src_interaction, input_trg2src_interaction_mask,
+                        _, _) = trg2src_interaction_layer(input_trg_understanding, input_src_understanding,
+                            input_trg_understanding_mask, input_src_understanding_mask)
         
         return input_src2trg_interaction, input_src2trg_interaction_mask, input_trg2src_interaction, input_trg2src_interaction_mask
     
