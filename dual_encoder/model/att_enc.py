@@ -307,17 +307,33 @@ class AttentionEncoder(BaseModel):
         src2trg_interaction_att_dropout = self.hyperparams.model_interaction_src2trg_attention_dropout if self.mode == "train" else 0.0
         src2trg_interaction_trainable = self.hyperparams.model_interaction_src2trg_trainable
         src2trg_interaction_enable = self.hyperparams.model_interaction_src2trg_enable
+        src_fusion_type = self.hyperparams.model_interaction_src_fusion_type
+        src_fusion_num_layer = self.hyperparams.model_interaction_src_fusion_num_layer
+        src_fusion_unit_dim = self.hyperparams.model_interaction_src_fusion_unit_dim
+        src_fusion_hidden_activation = self.hyperparams.model_interaction_src_fusion_hidden_activation
+        src_fusion_dropout = self.hyperparams.model_interaction_src_fusion_dropout if self.mode == "train" else 0.0
+        src_fusion_trainable = self.hyperparams.model_interaction_src_fusion_trainable
         trg2src_interaction_attention_dim = self.hyperparams.model_interaction_trg2src_attention_dim
         trg2src_interaction_score_type = self.hyperparams.model_interaction_trg2src_score_type
         trg2src_interaction_dropout = self.hyperparams.model_interaction_trg2src_dropout if self.mode == "train" else 0.0
         trg2src_interaction_att_dropout = self.hyperparams.model_interaction_trg2src_attention_dropout if self.mode == "train" else 0.0
         trg2src_interaction_trainable = self.hyperparams.model_interaction_trg2src_trainable
         trg2src_interaction_enable = self.hyperparams.model_interaction_trg2src_enable
+        trg_fusion_type = self.hyperparams.model_interaction_trg_fusion_type
+        trg_fusion_num_layer = self.hyperparams.model_interaction_trg_fusion_num_layer
+        trg_fusion_unit_dim = self.hyperparams.model_interaction_trg_fusion_unit_dim
+        trg_fusion_hidden_activation = self.hyperparams.model_interaction_trg_fusion_hidden_activation
+        trg_fusion_dropout = self.hyperparams.model_interaction_trg_fusion_dropout if self.mode == "train" else 0.0
+        trg_fusion_trainable = self.hyperparams.model_interaction_trg_fusion_trainable
         share_interaction = self.hyperparams.model_share_interaction
         
         with tf.variable_scope("interaction", reuse=tf.AUTO_REUSE):
             attention_matrix = None
             with tf.variable_scope("source2target", reuse=tf.AUTO_REUSE):
+                input_src_interaction_list = [input_src_understanding]
+                input_src_interaction_mask_list = [input_src_understanding_mask]
+                src_interaction_unit_dim = src_understanding_unit_dim
+                
                 if src2trg_interaction_enable == True:
                     self.logger.log_print("# build source2target interaction layer")
                     src2trg_interaction_layer = create_attention_layer("att",
@@ -333,8 +349,27 @@ class AttentionEncoder(BaseModel):
                     
                     if share_interaction == True:
                         attention_matrix = src2trg_interaction_layer.get_attention_matrix()
+                    
+                    input_src_interaction_list.append(input_src2trg_interaction)
+                    input_src_interaction_mask_list.append(input_src2trg_interaction_mask)
+                    src_interaction_unit_dim += trg_understanding_unit_dim
+                
+                self.logger.log_print("# build source interaction fusion layer")
+                src_fusion_layer = FusionModule(input_unit_dim=src_interaction_unit_dim,
+                    output_unit_dim=src_fusion_unit_dim, fusion_type=src_fusion_type,
+                    num_layer=src_fusion_num_layer, activation=src_fusion_hidden_activation,
+                    dropout=src_fusion_dropout, num_gpus=self.num_gpus, default_gpu_id=self.default_gpu_id,
+                    regularizer=self.regularizer, random_seed=self.random_seed, trainable=src_fusion_trainable)
+                
+                (input_src_interaction,
+                    input_src_interaction_mask) = src_fusion_layer(input_src_interaction_list,
+                        input_src_interaction_mask_list)
             
             with tf.variable_scope("target2source", reuse=tf.AUTO_REUSE):
+                input_trg_interaction_list = [input_trg_understanding]
+                input_trg_interaction_mask_list = [input_trg_understanding_mask]
+                trg_interaction_unit_dim = trg_understanding_unit_dim
+                
                 if trg2src_interaction_enable == True:
                     self.logger.log_print("# build target2source interaction layer")
                     trg2src_interaction_layer = create_attention_layer("att",
@@ -347,18 +382,36 @@ class AttentionEncoder(BaseModel):
                     (input_trg2src_interaction, input_trg2src_interaction_mask,
                         _, _) = trg2src_interaction_layer(input_trg_understanding, input_src_understanding,
                             input_trg_understanding_mask, input_src_understanding_mask)
+                    
+                    input_trg_interaction_list.append(input_trg2src_interaction)
+                    input_trg_interaction_mask_list.append(input_trg2src_interaction_mask)
+                    trg_interaction_unit_dim += src_understanding_unit_dim
+                
+                self.logger.log_print("# build target interaction fusion layer")
+                if share_representation == True:
+                    trg_fusion_layer = src_fusion_layer
+                else:
+                    trg_fusion_layer = FusionModule(input_unit_dim=trg_interaction_unit_dim,
+                        output_unit_dim=trg_fusion_unit_dim, fusion_type=trg_fusion_type,
+                        num_layer=trg_fusion_num_layer, activation=trg_fusion_hidden_activation,
+                        dropout=trg_fusion_dropout, num_gpus=self.num_gpus, default_gpu_id=self.default_gpu_id,
+                        regularizer=self.regularizer, random_seed=self.random_seed, trainable=trg_fusion_trainable)
+                
+                (input_trg_interaction,
+                    input_trg_interaction_mask) = trg_fusion_layer(input_trg_interaction_list,
+                        input_trg_interaction_mask_list)
         
-        return input_src2trg_interaction, input_src2trg_interaction_mask, input_trg2src_interaction, input_trg2src_interaction_mask
+        return input_src_interaction, input_src_interaction_mask, input_trg_interaction, input_trg_interaction_mask
     
     def _build_matching_layer(self,
                               input_src_understanding,
                               input_src_understanding_mask,
                               input_trg_understanding,
                               input_trg_understanding_mask,
-                              input_src2trg_interaction,
-                              input_src2trg_interaction_mask,
-                              input_trg2src_interaction,
-                              input_trg2src_interaction_mask):
+                              input_src_interaction,
+                              input_src_interaction_mask,
+                              input_trg_interaction,
+                              input_trg_interaction_mask):
         """build matching layer for attention encoder model"""
         pass
     
@@ -382,13 +435,13 @@ class AttentionEncoder(BaseModel):
                 input_trg_understanding_mask) = self._build_understanding_layer(input_src_feat,
                     input_src_feat_mask, input_trg_feat, input_trg_feat_mask)
             
-            (input_src2trg_interaction, input_src2trg_interaction_mask, input_trg2src_interaction,
-                input_trg2src_interaction_mask) = self._build_interaction_layer(input_src_understanding,
+            (input_src_interaction, input_src_interaction_mask, input_trg_interaction,
+                input_trg_interaction_mask) = self._build_interaction_layer(input_src_understanding,
                     input_src_understanding_mask, input_trg_understanding, input_trg_understanding_mask)
             
             output_matching, output_matching_mask = self._build_matching_layer(input_src_understanding,
-                input_src_understanding_mask, input_trg_understanding, input_trg_understanding_mask, input_src2trg_interaction,
-                input_src2trg_interaction_mask, input_trg2src_interaction, input_trg2src_interaction_mask)
+                input_src_understanding_mask, input_trg_understanding, input_trg_understanding_mask, input_src_interaction,
+                input_src_interaction_mask, input_trg_interaction, input_trg_interaction_mask)
             
         return output_matching, output_matching_mask
     
