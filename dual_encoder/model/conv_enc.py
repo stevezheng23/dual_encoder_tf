@@ -413,7 +413,30 @@ class ConvolutionEncoder(BaseModel):
                               input_trg_interaction,
                               input_trg_interaction_mask):
         """build matching layer for convolution encoder model"""
-        pass
+        matching_score_type = self.hyperparams.model_matching_score_type
+        matching_pooling_type = self.hyperparams.model_matching_pooling_type
+        matching_num_layer = self.hyperparams.model_matching_num_layer
+        matching_unit_dim = self.hyperparams.model_matching_unit_dim
+        matching_hidden_activation = self.hyperparams.model_matching_hidden_activation
+        matching_dropout = self.hyperparams.model_matching_dropout if self.mode == "train" else 0.0
+        matching_trainable = self.hyperparams.model_matching_trainable
+        
+        with tf.variable_scope("matching", reuse=tf.AUTO_REUSE):
+            if matching_score_type == "cosine":
+                score_layer = CosineScore(pooling_type=matching_pooling_type,
+                    num_gpus=self.num_gpus, default_gpu_id=self.default_gpu_id)
+            elif matching_score_type == "dense":
+                score_layer = DenseScore(pooling_type=matching_pooling_type, num_layer=matching_num_layer,
+                    unit_dim=matching_unit_dim, activation=matching_hidden_activation, dropout=matching_dropout,
+                    num_gpus=self.num_gpus, default_gpu_id=self.default_gpu_id, regularizer=self.regularizer,
+                    random_seed=self.random_seed, trainable=matching_trainable)
+            else:
+                raise ValueError("unsupported score type {0}".format(matching_score_type))
+            
+            input_matching, input_matching_mask = score_layer(input_src_interaction,
+                input_src_interaction_mask, input_trg_interaction, input_trg_interaction_mask)
+        
+        return input_matching, input_matching_mask
     
     def _build_graph(self,
                      input_src_word,
@@ -507,6 +530,97 @@ class ConvolutionEncoder(BaseModel):
             return ckpt_state.all_model_checkpoint_paths
         else:
             raise ValueError("unsupported checkpoint type {0}".format(ckpt_type))
+
+class CosineScore(object):
+    """cosine score layer"""
+    def __init__(self,
+                 pooling_type,
+                 num_gpus=1,
+                 default_gpu_id=0,
+                 scope="cosine_score"):
+        """initialize cosine-score layer"""
+        self.pooling_type = pooling_type
+        self.num_gpus = num_gpus
+        self.default_gpu_id = default_gpu_id
+        self.scope = scope
+        
+        with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
+            self.pooling_layer = create_pooling_layer(self.pooling_type, 1, 1, self.num_gpus, self.default_gpu_id)
+    
+    def __call__(self,
+                 input_src_data,
+                 input_src_mask,
+                 input_trg_data,
+                 input_trg_mask):
+        """call cosine-score layer"""
+        with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
+            input_src_pool, input_src_pool_mask = self.pooling_layer(input_src_data, input_src_mask)
+            input_trg_pool, input_trg_pool_mask = self.pooling_layer(input_trg_data, input_trg_mask)
+            
+            input_src_norm = tf.expand_dims(tf.nn.l2_normalize(input_src_pool, axis=-1), axis=-2)
+            input_src_norm_mask = tf.expand_dims(input_src_pool_mask, axis=-2)
+            input_trg_norm = tf.expand_dims(tf.nn.l2_normalize(input_trg_pool, axis=-1), axis=-1)
+            input_trg_norm_mask = tf.expand_dims(input_trg_pool_mask, axis=-1)
+            
+            output_matching = tf.squeeze(tf.matmul(input_src_norm, input_trg_norm), axis=[-1])
+            output_matching_mask = tf.squeeze(tf.matmul(input_src_norm_mask, input_trg_norm_mask), axis=[-1])
+        
+        return output_matching, output_matching_mask
+
+class DenseScore(object):
+    """dense-score layer"""
+    def __init__(self,
+                 pooling_type,
+                 num_layer,
+                 unit_dim,
+                 activation,
+                 dropout,
+                 num_gpus=1,
+                 default_gpu_id=0,
+                 regularizer=None,
+                 random_seed=0,
+                 trainable=True,
+                 scope="dense_score"):
+        """initialize dense-score layer"""
+        self.pooling_type = pooling_type
+        self.num_layer = num_layer
+        self.unit_dim = unit_dim
+        self.activation = activation
+        self.dropout = dropout
+        self.num_gpus = num_gpus
+        self.default_gpu_id = default_gpu_id
+        self.regularizer = regularizer
+        self.random_seed = random_seed
+        self.trainable = trainable
+        self.scope = scope
+        
+        with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
+            self.pooling_layer = create_pooling_layer(self.pooling_type, 1, 1, self.num_gpus, self.default_gpu_id)
+            
+            self.dense_layer = create_dense_layer("single", self.num_layer, self.unit_dim,
+                1, self.activation, [self.dropout] * self.num_layer, 0.0, True, True, True,
+                self.num_gpus, self.default_gpu_id, self.regularizer, self.random_seed, self.trainable)
+            
+            self.project_layer = create_dense_layer("single", 1, 1, 1, None, [0.0], 0.0, False, False, False,
+                self.num_gpus, self.default_gpu_id, self.regularizer, self.random_seed, self.trainable)
+    
+    def __call__(self,
+                 input_src_data,
+                 input_src_mask,
+                 input_trg_data,
+                 input_trg_mask):
+        """call dense-score layer"""
+        with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
+            input_src_pool, input_src_pool_mask = self.pooling_layer(input_src_data, input_src_mask)
+            input_trg_pool, input_trg_pool_mask = self.pooling_layer(input_trg_data, input_trg_mask)
+            
+            input_norm = tf.nn.l2_normalize(tf.concat([input_src_pool, input_trg_pool], axis=-1), axis=-1)
+            input_norm_mask = tf.reduce_max(tf.concat([input_src_pool_mask, input_trg_pool_mask], axis=-1), axis=-1, keepdims=True)
+            
+            input_dense, input_dense_mask = self.dense_layer(input_norm, input_norm_mask)
+            output_matching, output_matching_mask = self.project_layer(input_dense, input_dense_mask)
+        
+        return output_matching, output_matching_mask
 
 class ConvolutionBlock(object):
     """convolution-block layer"""
