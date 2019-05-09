@@ -454,13 +454,18 @@ def load_tsv_data(input_file):
             item_separator = "\t"
             for line in file:
                 items = line.strip().split(item_separator)
-                if len(items) < 4:
+                num_items = len(items)
+                
+                if num_items < 3:
                     continue
                 
                 sample_id = items[0]
                 source = items[1]
                 target = items[2]
-                label = items[3]
+                label = "1"
+                
+                if num_items > 3:
+                    label = items[3]
                 
                 input_data.append({
                     "id": sample_id,
@@ -478,6 +483,13 @@ def load_json_data(input_file):
     if os.path.exists(input_file):
         with codecs.getreader("utf-8")(open(input_file, "rb") ) as file:
             input_data = json.load(file)
+            input_data = [{
+                "id": data["id"],
+                "source": data["source"],
+                "target": data["target"],
+                "label": data["label"] if "label" in data else "1"
+            } for data in input_data]
+            
             return input_data
     else:
         raise FileNotFoundError("input file not found")
