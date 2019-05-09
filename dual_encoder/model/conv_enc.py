@@ -468,6 +468,14 @@ class ConvolutionEncoder(BaseModel):
             
         return output_matching, output_matching_mask
     
+    def _compute_loss(self,
+                      label,
+                      label_mask,
+                      predict,
+                      predict_mask):
+        """compute optimization loss"""
+        pass
+    
     def save(self,
              sess,
              global_step,

@@ -167,30 +167,18 @@ class BaseModel(object):
         
         return update_model, clipped_gradients, gradient_norm
     
-    def _compute_loss(self,
-                      label,
-                      label_mask,
-                      predict,
-                      predict_mask):
-        """compute optimization loss"""
-        pass
-    
     def _neg_sampling(self,
                       input_src_data,
                       input_src_mask,
                       input_trg_data,
                       input_trg_mask,
                       batch_size,
-                      neg_num):
+                      neg_num,
+                      random_seed=0,
+                      indice_list=None):
         """negative sampling"""
-        sample_indice_list = []
-        for index in range(batch_size):
-            neg_num = min(batch_size-1, neg_num) 
-            sample_indice = np.arange(batch_size)
-            sample_indice.remove(index)
-            np.random.shuffle(sample_indice)
-            sample_indice = [index] + sample_indice[:neg_num]
-            sample_indice_list.append(sample_indice)
+        if indice_list is None:
+            indice_list = self._neg_sampling_indice(batch_size, neg_num, random_seed)
         
         input_src_shape = tf.shape(input_src_data)
         src_max_length = input_src_shape[1]
@@ -203,11 +191,11 @@ class BaseModel(object):
         input_trg_sample_mask_list = []
         input_trg_shape = tf.shape(input_trg_data)
         trg_max_length = input_trg_shape[1]
-        for sample_indice in sample_indice_list:
-            input_trg_sample = tf.gather(input_trg_data, sample_indice, axis=0)
+        for indice in indice_list:
+            input_trg_sample = tf.gather(input_trg_data, indice, axis=0)
             input_trg_sample = tf.reshape(input_trg_sample, shape=[1, neg_num+1, trg_max_length, -1])
             input_trg_sample_list.append(input_trg_sample)
-            input_trg_sample_mask = tf.gather(input_trg_mask, sample_indice, axis=0)
+            input_trg_sample_mask = tf.gather(input_trg_mask, indice, axis=0)
             input_trg_sample_mask = tf.reshape(input_trg_sample_mask, shape=[1, neg_num+1, trg_max_length, -1])
             input_trg_sample_mask_list.append(input_trg_sample_mask)
         
@@ -215,6 +203,23 @@ class BaseModel(object):
         input_trg_sample_mask = tf.concat(input_trg_sample_mask_list, axis=0)
         
         return input_src_sample, input_src_sample_mask, input_trg_sample, input_trg_sample_mask_list
+    
+    def _neg_sampling_indice(self,
+                             batch_size,
+                             neg_num,
+                             random_seed):
+        """generate indice for negative sampling"""
+        np.random.seed(random_seed)
+        indice_list = []
+        for index in range(batch_size):
+            neg_num = min(batch_size-1, neg_num) 
+            indice = np.arange(batch_size)
+            indice.remove(index)
+            np.random.shuffle(indice)
+            indice = [index] + indice[:neg_num]
+            indice_list.append(indice)
+        
+        return indice_list
     
     def train(self,
               sess,
