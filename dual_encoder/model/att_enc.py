@@ -64,6 +64,14 @@ class AttentionEncoder(BaseModel):
             else:
                 self.variable_list = tf.global_variables()
             
+            if self.mode == "infer":
+                """get infer answer"""
+                self.infer_predict = tf.nn.sigmoid(self.predict)
+                self.infer_predict_mask = self.predict_mask
+                
+                """create infer summary"""
+                self.infer_summary = self._get_infer_summary()
+            
             if self.mode == "train":
                 """compute optimization loss"""
                 self.logger.log_print("# setup loss computation mechanism")
@@ -608,97 +616,6 @@ class AttentionEncoder(BaseModel):
         else:
             raise ValueError("unsupported checkpoint type {0}".format(ckpt_type))
 
-class CosineScore(object):
-    """cosine score layer"""
-    def __init__(self,
-                 pooling_type,
-                 num_gpus=1,
-                 default_gpu_id=0,
-                 scope="cosine_score"):
-        """initialize cosine-score layer"""
-        self.pooling_type = pooling_type
-        self.num_gpus = num_gpus
-        self.default_gpu_id = default_gpu_id
-        self.scope = scope
-        
-        with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
-            self.pooling_layer = create_pooling_layer(self.pooling_type, 1, 1, self.num_gpus, self.default_gpu_id)
-    
-    def __call__(self,
-                 input_src_data,
-                 input_src_mask,
-                 input_trg_data,
-                 input_trg_mask):
-        """call cosine-score layer"""
-        with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
-            input_src_pool, input_src_pool_mask = self.pooling_layer(input_src_data, input_src_mask)
-            input_trg_pool, input_trg_pool_mask = self.pooling_layer(input_trg_data, input_trg_mask)
-            
-            input_src_norm = tf.expand_dims(tf.nn.l2_normalize(input_src_pool, axis=-1), axis=-2)
-            input_src_norm_mask = tf.expand_dims(input_src_pool_mask, axis=-2)
-            input_trg_norm = tf.expand_dims(tf.nn.l2_normalize(input_trg_pool, axis=-1), axis=-1)
-            input_trg_norm_mask = tf.expand_dims(input_trg_pool_mask, axis=-1)
-            
-            output_matching = tf.squeeze(tf.matmul(input_src_norm, input_trg_norm), axis=[-1])
-            output_matching_mask = tf.squeeze(tf.matmul(input_src_norm_mask, input_trg_norm_mask), axis=[-1])
-        
-        return output_matching, output_matching_mask
-
-class DenseScore(object):
-    """dense-score layer"""
-    def __init__(self,
-                 pooling_type,
-                 num_layer,
-                 unit_dim,
-                 activation,
-                 dropout,
-                 num_gpus=1,
-                 default_gpu_id=0,
-                 regularizer=None,
-                 random_seed=0,
-                 trainable=True,
-                 scope="dense_score"):
-        """initialize dense-score layer"""
-        self.pooling_type = pooling_type
-        self.num_layer = num_layer
-        self.unit_dim = unit_dim
-        self.activation = activation
-        self.dropout = dropout
-        self.num_gpus = num_gpus
-        self.default_gpu_id = default_gpu_id
-        self.regularizer = regularizer
-        self.random_seed = random_seed
-        self.trainable = trainable
-        self.scope = scope
-        
-        with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
-            self.pooling_layer = create_pooling_layer(self.pooling_type, 1, 1, self.num_gpus, self.default_gpu_id)
-            
-            self.dense_layer = create_dense_layer("single", self.num_layer, self.unit_dim,
-                1, self.activation, [self.dropout] * self.num_layer, 0.0, True, True, True,
-                self.num_gpus, self.default_gpu_id, self.regularizer, self.random_seed, self.trainable)
-            
-            self.project_layer = create_dense_layer("single", 1, 1, 1, None, [0.0], 0.0, False, False, False,
-                self.num_gpus, self.default_gpu_id, self.regularizer, self.random_seed, self.trainable)
-    
-    def __call__(self,
-                 input_src_data,
-                 input_src_mask,
-                 input_trg_data,
-                 input_trg_mask):
-        """call dense-score layer"""
-        with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
-            input_src_pool, input_src_pool_mask = self.pooling_layer(input_src_data, input_src_mask)
-            input_trg_pool, input_trg_pool_mask = self.pooling_layer(input_trg_data, input_trg_mask)
-            
-            input_norm = tf.nn.l2_normalize(tf.concat([input_src_pool, input_trg_pool], axis=-1), axis=-1)
-            input_norm_mask = tf.reduce_max(tf.concat([input_src_pool_mask, input_trg_pool_mask], axis=-1), axis=-1, keepdims=True)
-            
-            input_dense, input_dense_mask = self.dense_layer(input_norm, input_norm_mask)
-            output_matching, output_matching_mask = self.project_layer(input_dense, input_dense_mask)
-        
-        return output_matching, output_matching_mask
-
 class AttentionBlock(object):
     """attention-block layer"""
     def __init__(self,
@@ -812,121 +729,3 @@ class StackedAttentionBlock(object):
                 input_block_mask = output_block_mask
         
         return output_block_list, output_block_mask_list
-
-class WordFeat(object):
-    """word-level featurization layer"""
-    def __init__(self,
-                 vocab_size,
-                 embed_dim,
-                 dropout,
-                 pretrained,
-                 embedding=None,
-                 num_gpus=1,
-                 default_gpu_id=0,
-                 regularizer=None,
-                 random_seed=0,
-                 trainable=True,
-                 scope="word_feat"):
-        """initialize word-level featurization layer"""
-        self.vocab_size = vocab_size
-        self.embed_dim = embed_dim
-        self.dropout = dropout
-        self.pretrained = pretrained
-        self.embedding = embedding
-        self.num_gpus = num_gpus
-        self.default_gpu_id = default_gpu_id
-        self.regularizer = regularizer
-        self.random_seed = random_seed
-        self.trainable = trainable
-        self.scope = scope
-        
-        with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
-            self.embedding_layer = create_embedding_layer(self.vocab_size, self.embed_dim, self.pretrained, self.embedding,
-                self.num_gpus, self.default_gpu_id, None, self.random_seed, self.trainable)
-            
-            self.dropout_layer = create_dropout_layer(self.dropout, self.num_gpus, self.default_gpu_id, self.random_seed)
-    
-    def __call__(self,
-                 input_word,
-                 input_word_mask):
-        """call word-level featurization layer"""
-        with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
-            input_word_embedding_mask = input_word_mask
-            input_word_embedding = tf.squeeze(self.embedding_layer(input_word), axis=-2)
-            
-            (input_word_dropout,
-                input_word_dropout_mask) = self.dropout_layer(input_word_embedding, input_word_embedding_mask)
-            
-            input_word_feat = input_word_dropout
-            input_word_feat_mask = input_word_dropout_mask
-        
-        return input_word_feat, input_word_feat_mask
-    
-    def get_embedding_placeholder(self):
-        """get word-level embedding placeholder"""
-        return self.embedding_layer.get_embedding_placeholder()
-
-class CharFeat(object):
-    """char-level featurization layer"""
-    def __init__(self,
-                 vocab_size,
-                 embed_dim,
-                 unit_dim,
-                 window_size,
-                 activation,
-                 pooling_type,
-                 dropout,
-                 num_gpus=1,
-                 default_gpu_id=0,
-                 regularizer=None,
-                 random_seed=0,
-                 trainable=True,
-                 scope="char_feat"):
-        """initialize char-level featurization layer"""
-        self.vocab_size = vocab_size
-        self.embed_dim = embed_dim
-        self.unit_dim = unit_dim
-        self.window_size = window_size
-        self.activation = activation
-        self.pooling_type = pooling_type
-        self.dropout = dropout
-        self.num_gpus = num_gpus
-        self.default_gpu_id = default_gpu_id
-        self.regularizer = regularizer
-        self.random_seed = random_seed
-        self.trainable = trainable
-        self.scope = scope
-        
-        with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
-            self.embedding_layer = create_embedding_layer(self.vocab_size, self.embed_dim, False, None,
-                self.num_gpus, self.default_gpu_id, None, self.random_seed, self.trainable)
-            
-            self.conv_layer = create_convolution_layer("stacked_multi_1d", 1, self.embed_dim, self.unit_dim,
-                self.window_size, 1, "SAME", self.activation, [0.0], None, False, False, True,
-                self.num_gpus, self.default_gpu_id, self.regularizer, self.random_seed, self.trainable)
-            
-            self.dropout_layer = create_dropout_layer(self.dropout, self.num_gpus, self.default_gpu_id, self.random_seed)
-            
-            self.pooling_layer = create_pooling_layer(self.pooling_type, 1, 1, self.num_gpus, self.default_gpu_id)
-    
-    def __call__(self,
-                 input_char,
-                 input_char_mask):
-        """call char-level featurization layer"""
-        with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
-            input_char_embedding_mask = tf.expand_dims(input_char_mask, axis=-1)
-            input_char_embedding = self.embedding_layer(input_char)
-            
-            (input_char_dropout,
-                input_char_dropout_mask) = self.dropout_layer(input_char_embedding, input_char_embedding_mask)
-            
-            (input_char_conv,
-                input_char_conv_mask) = self.conv_layer(input_char_dropout, input_char_dropout_mask)
-            
-            (input_char_pool,
-                input_char_pool_mask) = self.pooling_layer(input_char_conv, input_char_conv_mask)
-            
-            input_char_feat = input_char_pool
-            input_char_feat_mask = input_char_pool_mask
-        
-        return input_char_feat, input_char_feat_mask
