@@ -45,9 +45,10 @@ class AttentionEncoder(BaseModel):
             label = self.data_pipeline.input_label
             label_mask = self.data_pipeline.input_label_mask
             
-            if self.hyperparams.train_loss_type == "neg_sampling":
+            if self.enable_neg_sampling == True:
                 self.indice_list = self._neg_sampling_indice(self.batch_size, self.neg_num, self.random_seed)
-                self.label = tf.convert_to_tensor(self.indice_list, dtype=tf.float32)
+                self.label = tf.reshape(tf.convert_to_tensor(self.indice_list, dtype=tf.float32),
+                    shape=[self.batch_size, self.neg_num+1, 1])
                 self.label_mask = self.label
             
             """build graph for attention encoder"""
@@ -316,7 +317,6 @@ class AttentionEncoder(BaseModel):
         trg_understanding_layer_dropout = self.hyperparams.model_understanding_trg_layer_dropout if self.mode == "train" else 0.0
         trg_understanding_trainable = self.hyperparams.model_understanding_trg_trainable
         share_understanding = self.hyperparams.model_share_understanding
-        enable_negative_sampling = True if self.hyperparams.train_loss_type == "neg_sampling" else False
         
         with tf.variable_scope("understanding", reuse=tf.AUTO_REUSE):
             with tf.variable_scope("source", reuse=tf.AUTO_REUSE):
@@ -363,7 +363,7 @@ class AttentionEncoder(BaseModel):
                 input_trg_understanding = input_trg_understanding_list[-1]
                 input_trg_understanding_mask = input_trg_understanding_mask_list[-1]
             
-            if enable_negative_sampling == True:
+            if self.enable_negative_sampling == True:
                 (input_src_understanding, input_src_understanding_mask, input_trg_understanding,
                     input_trg_understanding_mask) = self.negative_sampling(input_src_understanding,
                         input_src_understanding_mask, input_trg_understanding, input_trg_understanding_mask,
@@ -544,26 +544,6 @@ class AttentionEncoder(BaseModel):
             predict_mask = input_matching_mask
             
         return predict, predict_mask
-    
-    def _compute_loss(self,
-                      label,
-                      label_mask,
-                      predict,
-                      predict_mask):
-        """compute optimization loss"""
-        loss_type = self.hyperparams.train_loss_type
-        
-        if loss_type == "neg_sampling":
-            masked_label = label * label_mask
-            masked_predict = predict * predict_mask
-            cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=masked_predict, labels=masked_label)
-            cross_entropy_mask = tf.reduce_max(tf.concat([label_mask, predict_mask], axis=-1), axis=-1, keepdims=True)
-            masked_cross_entropy = cross_entropy * cross_entropy_mask
-            loss = tf.reduce_mean(tf.reduce_sum(masked_cross_entropy, axis=-2))
-        else:
-            raise ValueError("unsupported loss type {0}".format(loss_type))
-        
-        return loss
     
     def save(self,
              sess,
