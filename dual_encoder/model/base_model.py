@@ -46,6 +46,7 @@ class BaseModel(object):
         
         self.batch_size = tf.size(tf.reduce_max(self.data_pipeline.input_label_mask, axis=-2))
         self.neg_num = self.hyperparams.train_neg_num
+        self.enable_negative_sampling = self.hyperparams.train_loss_type == "neg_sampling" and self.mode == "train"
         
         self.num_gpus = self.hyperparams.device_num_gpus
         self.default_gpu_id = self.hyperparams.device_default_gpu_id
@@ -166,6 +167,26 @@ class BaseModel(object):
         update_model = self.optimizer.apply_gradients(grads_and_vars, global_step=self.global_step)
         
         return update_model, clipped_gradients, gradient_norm
+    
+    def _compute_loss(self,
+                      label,
+                      label_mask,
+                      predict,
+                      predict_mask):
+        """compute optimization loss"""
+        loss_type = self.hyperparams.train_loss_type
+        
+        if loss_type == "neg_sampling":
+            masked_label = label * label_mask
+            masked_predict = predict * predict_mask
+            cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=masked_predict, labels=masked_label)
+            cross_entropy_mask = tf.reduce_max(tf.concat([label_mask, predict_mask], axis=-1), axis=-1, keepdims=True)
+            masked_cross_entropy = cross_entropy * cross_entropy_mask
+            loss = tf.reduce_mean(tf.reduce_sum(masked_cross_entropy, axis=-2))
+        else:
+            raise ValueError("unsupported loss type {0}".format(loss_type))
+        
+        return loss
     
     def _neg_sampling(self,
                       input_src_data,
