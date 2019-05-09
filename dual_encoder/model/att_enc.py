@@ -33,6 +33,76 @@ class AttentionEncoder(BaseModel):
             self.global_step = tf.get_variable("global_step", shape=[], dtype=tf.int32,
                 initializer=tf.zeros_initializer, trainable=False)
             
+            """get batch input from data pipeline"""
+            input_src_word = self.data_pipeline.input_src_word
+            input_src_word_mask = self.data_pipeline.input_src_word_mask
+            input_src_char = self.data_pipeline.input_src_char
+            input_src_char_mask = self.data_pipeline.input_src_char_mask
+            input_trg_word = self.data_pipeline.input_trg_word
+            input_trg_word_mask = self.data_pipeline.input_trg_word_mask
+            input_trg_char = self.data_pipeline.input_trg_char
+            input_trg_char_mask = self.data_pipeline.input_trg_char_mask
+            label = self.data_pipeline.input_label
+            label_mask = self.data_pipeline.input_label_mask
+            
+            """build graph for attention encoder"""
+            self.logger.log_print("# build graph")
+            predict, predict_mask = self._build_graph(input_src_word, input_src_word_mask, input_src_char,
+                input_src_char_mask, input_trg_word, input_trg_word_mask, input_trg_char, input_trg_char_mask)
+            self.predict = predict
+            self.predict_mask = predict_mask
+            
+            if self.hyperparams.train_ema_enable == True:
+                self.ema = self._get_exponential_moving_average(self.global_step)
+                self.variable_list = self.ema.variables_to_restore(tf.trainable_variables())
+            else:
+                self.variable_list = tf.global_variables()
+            
+            if self.mode == "train":
+                """compute optimization loss"""
+                self.logger.log_print("# setup loss computation mechanism")
+                self.train_loss = self._compute_loss(label, label_mask, self.predict, self.predict_mask)
+                
+                if self.hyperparams.train_regularization_enable == True:
+                    regularization_variables = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
+                    regularization_loss = tf.contrib.layers.apply_regularization(self.regularizer, regularization_variables)
+                    self.train_loss = self.train_loss + regularization_loss
+                
+                """apply learning rate warm-up & decay"""
+                self.logger.log_print("# setup initial learning rate mechanism")
+                self.initial_learning_rate = tf.constant(self.hyperparams.train_optimizer_learning_rate)
+                
+                if self.hyperparams.train_optimizer_warmup_enable == True:
+                    self.logger.log_print("# setup learning rate warm-up mechanism")
+                    self.warmup_learning_rate = self._apply_learning_rate_warmup(self.initial_learning_rate)
+                else:
+                    self.warmup_learning_rate = self.initial_learning_rate
+                
+                if self.hyperparams.train_optimizer_decay_enable == True:
+                    self.logger.log_print("# setup learning rate decay mechanism")
+                    self.decayed_learning_rate = self._apply_learning_rate_decay(self.warmup_learning_rate)
+                else:
+                    self.decayed_learning_rate = self.warmup_learning_rate
+                
+                self.learning_rate = self.decayed_learning_rate
+                
+                """initialize optimizer"""
+                self.logger.log_print("# setup training optimizer")
+                self.optimizer = self._initialize_optimizer(self.learning_rate)
+                
+                """minimize optimization loss"""
+                self.logger.log_print("# setup loss minimization mechanism")
+                self.opt_op, self.clipped_gradients, self.gradient_norm = self._minimize_loss(self.train_loss)
+                
+                if self.hyperparams.train_ema_enable == True:
+                    with tf.control_dependencies([self.opt_op]):
+                        self.update_op = self.ema.apply(tf.trainable_variables())
+                else:
+                    self.update_op = self.opt_op
+                
+                """create train summary"""
+                self.train_summary = self._get_train_summary()
+            
             """create checkpoint saver"""
             if not tf.gfile.Exists(self.hyperparams.train_ckpt_output_dir):
                 tf.gfile.MakeDirs(self.hyperparams.train_ckpt_output_dir)
@@ -241,6 +311,7 @@ class AttentionEncoder(BaseModel):
         trg_understanding_layer_dropout = self.hyperparams.model_understanding_trg_layer_dropout if self.mode == "train" else 0.0
         trg_understanding_trainable = self.hyperparams.model_understanding_trg_trainable
         share_understanding = self.hyperparams.model_share_understanding
+        enable_negative_sampling = True if self.hyperparams.train_loss_type == "neg_sampling" else False
         
         with tf.variable_scope("understanding", reuse=tf.AUTO_REUSE):
             with tf.variable_scope("source", reuse=tf.AUTO_REUSE):
@@ -287,9 +358,10 @@ class AttentionEncoder(BaseModel):
                 input_trg_understanding = input_trg_understanding_list[-1]
                 input_trg_understanding_mask = input_trg_understanding_mask_list[-1]
             
-            (input_src_understanding, input_src_understanding_mask, input_trg_understanding,
-                input_trg_understanding_mask) = self.negative_sampling(input_src_understanding, input_src_understanding_mask,
-                    input_trg_understanding, input_trg_understanding_mask, self.batch_size, self.self.neg_num)
+            if enable_negative_sampling == True:
+                (input_src_understanding, input_src_understanding_mask, input_trg_understanding,
+                    input_trg_understanding_mask) = self.negative_sampling(input_src_understanding, input_src_understanding_mask,
+                        input_trg_understanding, input_trg_understanding_mask, self.batch_size, self.self.neg_num)
         
         return input_src_understanding, input_src_understanding_mask, input_trg_understanding, input_trg_understanding_mask
     
@@ -458,11 +530,14 @@ class AttentionEncoder(BaseModel):
                 input_trg_interaction_mask) = self._build_interaction_layer(input_src_understanding,
                     input_src_understanding_mask, input_trg_understanding, input_trg_understanding_mask)
             
-            output_matching, output_matching_mask = self._build_matching_layer(input_src_understanding,
+            input_matching, input_matching_mask = self._build_matching_layer(input_src_understanding,
                 input_src_understanding_mask, input_trg_understanding, input_trg_understanding_mask, input_src_interaction,
                 input_src_interaction_mask, input_trg_interaction, input_trg_interaction_mask)
             
-        return output_matching, output_matching_mask
+            predict = input_matching
+            predict_mask = input_matching_mask
+            
+        return predict, predict_mask
     
     def save(self,
              sess,
