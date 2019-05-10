@@ -1,0 +1,462 @@
+{
+    "hyperparams": {
+        "data_src_word_max_length": {
+            "stype": "discrete",
+            "set": [300],
+            "dtype": "int"
+        },
+        "data_src_char_max_length": {
+            "stype": "discrete",
+            "set": [16],
+            "dtype": "int"
+        },
+        "data_trg_word_max_length": {
+            "stype": "discrete",
+            "set": [300],
+            "dtype": "int"
+        },
+        "data_trg_char_max_length": {
+            "stype": "discrete",
+            "set": [16],
+            "dtype": "int"
+        },
+        "train_optimizer_type": {
+            "stype": "discrete",
+            "set": ["adam"],
+            "dtype": "string"
+        },
+        "train_optimizer_learning_rate": {
+            "stype": "log",
+            "range": [0.0001, 0.001],
+            "dtype": "float"
+        },
+        "model_representation_src_word_embed_dim": {
+            "stype": "lookup",
+            "key": "representation_word_embed_dim",
+            "dtype": "int"
+        },
+        "model_representation_src_word_dropout": {
+            "stype": "lookup",
+            "key": "dropout",
+            "scale": 1.0,
+            "shift": 0.0,
+            "dtype": "float"
+        },
+        "model_representation_src_char_embed_dim": {
+            "stype": "lookup",
+            "key": "representation_char_embed_dim",
+            "dtype": "int"
+        },
+        "model_representation_src_char_unit_dim": {
+            "stype": "lookup",
+            "key": "representation_char_unit_dim",
+            "dtype": "int"
+        },
+        "model_representation_src_char_window_size": {
+            "stype": "lookup",
+            "key": "representation_char_window_size",
+            "dtype": "list"
+        },
+        "model_representation_src_char_hidden_activation": {
+            "stype": "lookup",
+            "key": "representation_char_hidden_activation",
+            "dtype": "string"
+        },
+        "model_representation_src_char_dropout": {
+            "stype": "lookup",
+            "key": "dropout",
+            "scale": 1.0,
+            "shift": 0.0,
+            "dtype": "float"
+        },
+        "model_representation_src_char_pooling_type": {
+            "stype": "lookup",
+            "key": "representation_char_pooling_type",
+            "dtype": "string"
+        },
+        "model_representation_src_fusion_type": {
+            "stype": "lookup",
+            "key": "representation_fusion_type",
+            "dtype": "string"
+        },
+        "model_representation_src_fusion_num_layer": {
+            "stype": "lookup",
+            "key": "representation_fusion_num_layer",
+            "dtype": "int"
+        },
+        "model_representation_src_fusion_unit_dim": {
+            "stype": "lookup",
+            "key": "representation_fusion_unit_dim",
+            "dtype": "int"
+        },
+        "model_representation_src_fusion_hidden_activation": {
+            "stype": "lookup",
+            "key": "representation_fusion_hidden_activation",
+            "dtype": "string"
+        },
+        "model_representation_src_fusion_dropout": {
+            "stype": "lookup",
+            "key": "dropout",
+            "scale": 1.0,
+            "shift": 0.0,
+            "dtype": "float"
+        },
+        "model_representation_trg_word_embed_dim": {
+            "stype": "lookup",
+            "key": "representation_word_embed_dim",
+            "dtype": "int"
+        },
+        "model_representation_trg_word_dropout": {
+            "stype": "lookup",
+            "key": "dropout",
+            "scale": 1.0,
+            "shift": 0.0,
+            "dtype": "float"
+        },
+        "model_representation_trg_char_embed_dim": {
+            "stype": "lookup",
+            "key": "representation_char_embed_dim",
+            "dtype": "int"
+        },
+        "model_representation_trg_char_unit_dim": {
+            "stype": "lookup",
+            "key": "representation_char_unit_dim",
+            "dtype": "int"
+        },
+        "model_representation_trg_char_window_size": {
+            "stype": "lookup",
+            "key": "representation_char_window_size",
+            "dtype": "list"
+        },
+        "model_representation_trg_char_hidden_activation": {
+            "stype": "lookup",
+            "key": "representation_char_hidden_activation",
+            "dtype": "string"
+        },
+        "model_representation_trg_char_dropout": {
+            "stype": "lookup",
+            "key": "dropout",
+            "scale": 1.0,
+            "shift": 0.0,
+            "dtype": "float"
+        },
+        "model_representation_trg_char_pooling_type": {
+            "stype": "lookup",
+            "key": "representation_char_pooling_type",
+            "dtype": "string"
+        },
+        "model_representation_trg_fusion_type": {
+            "stype": "lookup",
+            "key": "representation_fusion_type",
+            "dtype": "string"
+        },
+        "model_representation_trg_fusion_num_layer": {
+            "stype": "lookup",
+            "key": "representation_fusion_num_layer",
+            "dtype": "int"
+        },
+        "model_representation_trg_fusion_unit_dim": {
+            "stype": "lookup",
+            "key": "representation_fusion_unit_dim",
+            "dtype": "int"
+        },
+        "model_representation_trg_fusion_hidden_activation": {
+            "stype": "lookup",
+            "key": "representation_fusion_hidden_activation",
+            "dtype": "string"
+        },
+        "model_representation_trg_fusion_dropout": {
+            "stype": "lookup",
+            "key": "dropout",
+            "scale": 1.0,
+            "shift": 0.0,
+            "dtype": "float"
+        },
+        "model_understanding_src_num_layer": {
+            "stype": "lookup",
+            "key": "understanding_num_layer",
+            "dtype": "int"
+        },
+        "model_understanding_src_unit_dim": {
+            "stype": "lookup",
+            "key": "understanding_unit_dim",
+            "dtype": "int"
+        },
+        "model_understanding_src_cell_type": {
+            "stype": "lookup",
+            "key": "understanding_cell_type",
+            "dtype": "string"
+        },
+        "model_understanding_src_hidden_activation": {
+            "stype": "lookup",
+            "key": "understanding_hidden_activation",
+            "dtype": "string"
+        },
+        "model_understanding_src_dropout": {
+            "stype": "lookup",
+            "key": "dropout",
+            "scale": 1.0,
+            "shift": 0.0,
+            "dtype": "float"
+        },
+        "model_understanding_trg_num_layer": {
+            "stype": "lookup",
+            "key": "understanding_num_layer",
+            "dtype": "int"
+        },
+        "model_understanding_trg_unit_dim": {
+            "stype": "lookup",
+            "key": "understanding_unit_dim",
+            "dtype": "int"
+        },
+        "model_understanding_trg_cell_type": {
+            "stype": "lookup",
+            "key": "understanding_cell_type",
+            "dtype": "string"
+        },
+        "model_understanding_trg_hidden_activation": {
+            "stype": "lookup",
+            "key": "understanding_hidden_activation",
+            "dtype": "string"
+        },
+        "model_understanding_trg_dropout": {
+            "stype": "lookup",
+            "key": "dropout",
+            "scale": 1.0,
+            "shift": 0.0,
+            "dtype": "float"
+        },
+        "model_interaction_src2trg_attention_dim": {
+            "stype": "lookup",
+            "key": "interaction_attention_dim",
+            "dtype": "int"
+        },
+        "model_interaction_src2trg_score_type": {
+            "stype": "lookup",
+            "key": "interaction_score_type",
+            "dtype": "string"
+        },
+        "model_interaction_src2trg_dropout": {
+            "stype": "lookup",
+            "key": "dropout",
+            "scale": 1.0,
+            "shift": 0.0,
+            "dtype": "float"
+        },
+        "model_interaction_src_fusion_type": {
+            "stype": "lookup",
+            "key": "interaction_fusion_type",
+            "dtype": "string"
+        },
+        "model_interaction_src_fusion_num_layer": {
+            "stype": "lookup",
+            "key": "interaction_fusion_num_layer",
+            "dtype": "int"
+        },
+        "model_interaction_src_fusion_unit_dim": {
+            "stype": "lookup",
+            "key": "interaction_fusion_unit_dim",
+            "dtype": "int"
+        },
+        "model_interaction_src_fusion_hidden_activation": {
+            "stype": "lookup",
+            "key": "interaction_fusion_hidden_activation",
+            "dtype": "string"
+        },
+        "model_interaction_src_fusion_dropout": {
+            "stype": "lookup",
+            "key": "dropout",
+            "scale": 1.0,
+            "shift": 0.0,
+            "dtype": "float"
+        },
+        "model_interaction_trg2src_attention_dim": {
+            "stype": "lookup",
+            "key": "interaction_attention_dim",
+            "dtype": "int"
+        },
+        "model_interaction_trg2src_score_type": {
+            "stype": "lookup",
+            "key": "interaction_score_type",
+            "dtype": "string"
+        },
+        "model_interaction_trg2src_dropout": {
+            "stype": "lookup",
+            "key": "dropout",
+            "scale": 1.0,
+            "shift": 0.0,
+            "dtype": "float"
+        },
+        "model_interaction_trg_fusion_type": {
+            "stype": "lookup",
+            "key": "interaction_fusion_type",
+            "dtype": "string"
+        },
+        "model_interaction_trg_fusion_num_layer": {
+            "stype": "lookup",
+            "key": "interaction_fusion_num_layer",
+            "dtype": "int"
+        },
+        "model_interaction_trg_fusion_unit_dim": {
+            "stype": "lookup",
+            "key": "interaction_fusion_unit_dim",
+            "dtype": "int"
+        },
+        "model_interaction_trg_fusion_hidden_activation": {
+            "stype": "lookup",
+            "key": "interaction_fusion_hidden_activation",
+            "dtype": "string"
+        },
+        "model_interaction_trg_fusion_dropout": {
+            "stype": "lookup",
+            "key": "dropout",
+            "scale": 1.0,
+            "shift": 0.0,
+            "dtype": "float"
+        },
+        "model_matching_score_type": {
+            "stype": "discrete",
+            "set": ["cosine"],
+            "dtype": "string"
+        },
+        "model_matching_pooling_type": {
+            "stype": "discrete",
+            "set": ["max"],
+            "dtype": "string"
+        },
+        "model_matching_num_layer": {
+            "stype": "discrete",
+            "set": [2],
+            "dtype": "int"
+        },
+        "model_matching_unit_dim": {
+            "stype": "discrete",
+            "set": [128],
+            "dtype": "int"
+        },
+        "model_matching_hidden_activation": {
+            "stype": "discrete",
+            "set": ["relu"],
+            "dtype": "string"
+        },
+        "model_matching_dropout": {
+            "stype": "lookup",
+            "key": "dropout",
+            "scale": 1.0,
+            "shift": 0.0,
+            "dtype": "float"
+        }
+    },
+    "variables": {
+        "representation_word_embed_dim": {
+            "stype": "discrete",
+            "set": [300],
+            "dtype": "int"
+        },
+        "representation_char_embed_dim": {
+            "stype": "discrete",
+            "set": [8, 16, 64],
+            "dtype": "int"
+        },
+        "representation_char_unit_dim": {
+            "stype": "discrete",
+            "set": [100],
+            "dtype": "int"
+        },
+        "representation_char_window_size": {
+            "stype": "discrete",
+            "set": [[3,5]],
+            "dtype": "list"
+        },
+        "representation_char_hidden_activation": {
+            "stype": "discrete",
+            "set": ["relu"],
+            "dtype": "string"
+        },
+        "representation_char_pooling_type": {
+            "stype": "discrete",
+            "set": ["max"],
+            "dtype": "string"
+        },
+        "representation_fusion_type": {
+            "stype": "discrete",
+            "set": ["highway"],
+            "dtype": "string"
+        },
+        "representation_fusion_num_layer": {
+            "stype": "discrete",
+            "set": [2],
+            "dtype": "int"
+        },
+        "representation_fusion_unit_dim": {
+            "stype": "discrete",
+            "set": [128],
+            "dtype": "int"
+        },
+        "representation_fusion_hidden_activation": {
+            "stype": "discrete",
+            "set": ["relu"],
+            "dtype": "string"
+        },
+        "understanding_num_layer": {
+            "stype": "discrete",
+            "set": [1, 2],
+            "dtype": "int"
+        },
+        "understanding_unit_dim": {
+            "stype": "uniform",
+            "range": [100, 500],
+            "dtype": "int"
+        },
+        "understanding_cell_type": {
+            "stype": "discrete",
+            "set": ["lstm", "gru"],
+            "dtype": "string"
+        },
+        "understanding_hidden_activation": {
+            "stype": "discrete",
+            "set": ["tanh", "relu"],
+            "dtype": "string"
+        },
+        "interaction_attention_dim": {
+            "stype": "uniform",
+            "range": [100, 500],
+            "dtype": "int"
+        },
+        "interaction_score_type": {
+            "stype": "discrete",
+            "set": ["trilinear"],
+            "dtype": "string"
+        },
+        "interaction_fusion_type": {
+            "stype": "discrete",
+            "set": ["concate"],
+            "dtype": "string"
+        },
+        "interaction_fusion_num_layer": {
+            "stype": "discrete",
+            "set": [1],
+            "dtype": "int"
+        },
+        "interaction_fusion_unit_dim": {
+            "stype": "discrete",
+            "set": [128],
+            "dtype": "int"
+        },
+        "interaction_fusion_hidden_activation": {
+            "stype": "discrete",
+            "set": ["relu"],
+            "dtype": "string"
+        },
+        "dropout": {
+            "stype": "uniform",
+            "range": [0.1, 0.5],
+            "dtype": "float"
+        },
+        "layer_dropout": {
+            "stype": "uniform",
+            "range": [0.1, 0.5],
+            "dtype": "float"
+        }
+    }
+}
