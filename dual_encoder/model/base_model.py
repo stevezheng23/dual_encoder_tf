@@ -234,7 +234,7 @@ class BaseModel(object):
         indice_list = []
         for index in range(batch_size):
             neg_num = min(batch_size-1, neg_num) 
-            indice = np.arange(batch_size)
+            indice = list(range(batch_size))
             indice.remove(index)
             np.random.shuffle(indice)
             indice = [index] + indice[:neg_num]
