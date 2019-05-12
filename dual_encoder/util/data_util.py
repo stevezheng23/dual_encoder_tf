@@ -615,7 +615,7 @@ def prepare_dual_data(logger,
                       src_char_vocab_threshold,
                       src_char_unk,
                       src_char_pad,
-                      src_char_feat_enable
+                      src_char_feat_enable,
                       trg_word_vocab_file,
                       trg_word_vocab_size,
                       trg_word_vocab_threshold,
@@ -661,7 +661,7 @@ def prepare_dual_data(logger,
                 src_char_vocab_file, src_char_vocab_size, src_char_vocab_threshold, src_char_unk, src_char_pad, src_char_feat_enable)
     
     logger.log_print("# prepare target data")
-    if share_vocab = False:
+    if share_vocab == False:
         (trg_word_embed_data, trg_word_vocab_size, trg_word_vocab_index, trg_word_vocab_inverted_index,
             trg_char_vocab_size, trg_char_vocab_index, trg_char_vocab_inverted_index) = prepare_data(logger, input_trg_data,
                 trg_word_vocab_file, trg_word_vocab_size, trg_word_vocab_threshold, trg_word_embed_dim, trg_word_embed_file,
