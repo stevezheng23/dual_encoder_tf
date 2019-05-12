@@ -45,7 +45,7 @@ class AttentionEncoder(BaseModel):
             label = self.data_pipeline.input_label
             label_mask = self.data_pipeline.input_label_mask
             
-            if self.enable_neg_sampling == True:
+            if self.enable_negative_sampling == True:
                 self.indice_list = self._neg_sampling_indice(self.batch_size, self.neg_num, self.random_seed)
                 self.label = tf.reshape(tf.convert_to_tensor(self.indice_list, dtype=tf.float32),
                     shape=[self.batch_size, self.neg_num+1, 1])

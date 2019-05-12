@@ -27,7 +27,7 @@ def create_train_model(logger,
     graph = tf.Graph()
     with graph.as_default():
         logger.log_print("# prepare train data")
-        (input_dual_data, input_src_data, input_trg_data, input_label_data, src_word_embed_data,
+        (input_data, input_src_data, input_trg_data, input_label_data, src_word_embed_data,
             src_word_vocab_size, src_word_vocab_index, src_word_vocab_inverted_index, src_char_vocab_size,
             src_char_vocab_index, src_char_vocab_inverted_index, trg_word_embed_data, trg_word_vocab_size,
             trg_word_vocab_index, trg_word_vocab_inverted_index, trg_char_vocab_size, trg_char_vocab_index,
@@ -126,7 +126,7 @@ def create_infer_model(logger,
     graph = tf.Graph()
     with graph.as_default():
         logger.log_print("# prepare infer data")
-        (input_dual_data, input_src_data, input_trg_data, input_label_data, src_word_embed_data,
+        (input_data, input_src_data, input_trg_data, input_label_data, src_word_embed_data,
             src_word_vocab_size, src_word_vocab_index, src_word_vocab_inverted_index, src_char_vocab_size,
             src_char_vocab_index, src_char_vocab_inverted_index, trg_word_embed_data, trg_word_vocab_size,
             trg_word_vocab_index, trg_word_vocab_inverted_index, trg_char_vocab_size, trg_char_vocab_index,

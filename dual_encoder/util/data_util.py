@@ -259,7 +259,7 @@ def create_label_dataset(input_data_set,
     """create label dataset for input target data"""
     dataset = input_data_set
     
-    num_dataset = dataset.map(lambda para: generate_num_feat(sent, string_max_size), num_parallel_calls=num_parallel)
+    num_dataset = dataset.map(lambda sent: generate_num_feat(sent, string_max_size), num_parallel_calls=num_parallel)
     
     return num_dataset
 
