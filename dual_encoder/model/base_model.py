@@ -8,7 +8,8 @@ from util.default_util import *
 from util.dual_encoder_util import *
 from util.layer_util import *
 
-__all__ = ["TrainResult", "InferResult", "BaseModel", "FusionModule"]
+__all__ = ["TrainResult", "InferResult", "BaseModel", "FusionModule",
+           "CosineScore", "DenseScore", "WordFeat", "CharFeat"]
 
 class TrainResult(collections.namedtuple("TrainResult",
     ("loss", "learning_rate", "global_step", "batch_size", "summary"))):
@@ -46,7 +47,7 @@ class BaseModel(object):
         self.src_word_embed_placeholder = None
         self.trg_word_embed_placeholder = None
         
-        self.batch_size = tf.size(tf.reduce_max(self.data_pipeline.input_label_mask, axis=-2))
+        self.batch_size = self.data_pipeline.batch_size
         self.neg_num = self.hyperparams.train_neg_num
         self.enable_negative_sampling = self.hyperparams.train_loss_type == "neg_sampling" and self.mode == "train"
         
@@ -487,7 +488,7 @@ class WordFeat(object):
         
         with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
             self.embedding_layer = create_embedding_layer(self.vocab_size, self.embed_dim, self.pretrained, self.embedding,
-                self.num_gpus, self.default_gpu_id, None, self.random_seed, self.trainable)
+                self.num_gpus, self.default_gpu_id, None, self.random_seed, False, self.trainable)
             
             self.dropout_layer = create_dropout_layer(self.dropout, self.num_gpus, self.default_gpu_id, self.random_seed)
     
@@ -544,7 +545,7 @@ class CharFeat(object):
         
         with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
             self.embedding_layer = create_embedding_layer(self.vocab_size, self.embed_dim, False, None,
-                self.num_gpus, self.default_gpu_id, None, self.random_seed, self.trainable)
+                self.num_gpus, self.default_gpu_id, None, self.random_seed, False, self.trainable)
             
             self.conv_layer = create_convolution_layer("stacked_multi_1d", 1, self.embed_dim, self.unit_dim,
                 self.window_size, 1, "SAME", self.activation, [0.0], None, False, False, True,

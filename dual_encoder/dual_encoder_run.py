@@ -35,11 +35,10 @@ def pipeline_initialize(sess,
     
     if pipeline_mode == "dynamic":
         sess.run(model.data_pipeline.initializer,
-            feed_dict={model.data_pipeline.input_src_placeholder: model.input_src_data,
+            feed_dict={model.data_pipeline.data_size_placeholder: data_size,
+                model.data_pipeline.input_src_placeholder: model.input_src_data,
                 model.data_pipeline.input_trg_placeholder: model.input_trg_data,
-                model.data_pipeline.input_label_placeholder: model.input_label_data,
-                model.data_pipeline.data_size_placeholder: data_size,
-                model.data_pipeline.batch_size_placeholder: batch_size})
+                model.data_pipeline.input_label_placeholder: model.input_label_data})
     else:
         sess.run(model.data_pipeline.initializer)
     

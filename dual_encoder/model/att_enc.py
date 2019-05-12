@@ -204,7 +204,7 @@ class AttentionEncoder(BaseModel):
             if src_word_feat_enable == True:
                 self.logger.log_print("# build word-level source representation layer")
                 src_word_feat_layer = WordFeat(vocab_size=src_word_vocab_size, embed_dim=src_word_embed_dim,
-                    dropout=src_word_dropout, pretrained=src_word_embed_pretrained, embedding=self.src_word_embedding,
+                    dropout=src_word_dropout, pretrained=src_word_embed_pretrained, embedding=self.src_word_embed,
                     num_gpus=self.num_gpus, default_gpu_id=self.default_gpu_id, regularizer=self.regularizer, 
                     random_seed=self.random_seed, trainable=src_word_feat_trainable)
                 
@@ -251,7 +251,7 @@ class AttentionEncoder(BaseModel):
                     trg_word_feat_layer = src_word_feat_layer
                 else:
                     trg_word_feat_layer = WordFeat(vocab_size=trg_word_vocab_size, embed_dim=trg_word_embed_dim,
-                        dropout=trg_word_dropout, pretrained=trg_word_embed_pretrained, embedding=self.trg_word_embedding,
+                        dropout=trg_word_dropout, pretrained=trg_word_embed_pretrained, embedding=self.trg_word_embed,
                         num_gpus=self.num_gpus, default_gpu_id=self.default_gpu_id, regularizer=self.regularizer, 
                         random_seed=self.random_seed, trainable=trg_word_feat_trainable)
                 

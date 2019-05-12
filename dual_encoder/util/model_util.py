@@ -32,8 +32,8 @@ def create_train_model(logger,
             src_char_vocab_index, src_char_vocab_inverted_index, trg_word_embed_data, trg_word_vocab_size,
             trg_word_vocab_index, trg_word_vocab_inverted_index, trg_char_vocab_size, trg_char_vocab_index,
             trg_char_vocab_inverted_index) = prepare_dual_data(logger, hyperparams.data_train_dual_file,
-                hyperparams.data_train_dual_file_type, hyperparams.data_share_vocab, hyperparams.data_src_word_vocab_file,
-                hyperparams.data_src_word_vocab_size, hyperparams.data_src_word_vocab_threshold,
+                hyperparams.data_train_dual_file_type, hyperparams.train_batch_size, hyperparams.data_share_vocab,
+                hyperparams.data_src_word_vocab_file, hyperparams.data_src_word_vocab_size, hyperparams.data_src_word_vocab_threshold,
                 hyperparams.model_representation_src_word_embed_dim, hyperparams.data_src_embed_file,
                 hyperparams.data_src_embed_full_file, hyperparams.model_representation_src_word_embed_pretrained,
                 hyperparams.data_src_word_unk, hyperparams.data_src_word_pad, hyperparams.model_representation_src_word_feat_enable,
@@ -71,15 +71,14 @@ def create_train_model(logger,
 
             logger.log_print("# create train data pipeline")
             data_size_placeholder = tf.placeholder(shape=[], dtype=tf.int64)
-            batch_size_placeholder = tf.placeholder(shape=[], dtype=tf.int64)
             data_pipeline = create_dynamic_pipeline(input_src_word_dataset, input_src_char_dataset,
                 input_trg_word_dataset, input_trg_char_dataset, input_label_dataset, src_word_vocab_index,
                 hyperparams.data_src_word_pad, hyperparams.model_representation_src_word_feat_enable, src_char_vocab_index,
                 hyperparams.data_src_char_pad, hyperparams.model_representation_src_char_feat_enable, trg_word_vocab_index,
                 hyperparams.data_trg_word_pad, hyperparams.model_representation_trg_word_feat_enable, trg_char_vocab_index,
-                hyperparams.data_trg_char_pad, hyperparams.model_representation_trg_char_feat_enable,
-                hyperparams.train_random_seed, hyperparams.train_enable_shuffle, hyperparams.train_shuffle_buffer_size,
-                input_src_placeholder, input_trg_placeholder, input_label_placeholder, data_size_placeholder, batch_size_placeholder)
+                hyperparams.data_trg_char_pad, hyperparams.model_representation_trg_char_feat_enable, hyperparams.train_random_seed,
+                hyperparams.train_enable_shuffle, hyperparams.train_shuffle_buffer_size, hyperparams.train_batch_size,
+                data_size_placeholder, input_src_placeholder, input_trg_placeholder, input_label_placeholder)
         else:
             if src_word_embed_data is not None and trg_word_embed_data is not None:
                 external_data["src_word_embed"] = src_word_embed_data
@@ -109,9 +108,8 @@ def create_train_model(logger,
                 hyperparams.data_src_word_pad, hyperparams.model_representation_src_word_feat_enable, src_char_vocab_index,
                 hyperparams.data_src_char_pad, hyperparams.model_representation_src_char_feat_enable, trg_word_vocab_index,
                 hyperparams.data_trg_word_pad, hyperparams.model_representation_trg_word_feat_enable, trg_char_vocab_index,
-                hyperparams.data_trg_char_pad, hyperparams.model_representation_trg_char_feat_enable,
-                hyperparams.train_random_seed, hyperparams.train_enable_shuffle, hyperparams.train_shuffle_buffer_size,
-                len(input_data), hyperparams.train_batch_size)
+                hyperparams.data_trg_char_pad, hyperparams.model_representation_trg_char_feat_enable, hyperparams.train_random_seed,
+                hyperparams.train_enable_shuffle, hyperparams.train_shuffle_buffer_size, hyperparams.train_batch_size, len(input_data))
         
         model_creator = get_model_creator(hyperparams.model_type)
         model = model_creator(logger=logger, hyperparams=hyperparams, data_pipeline=data_pipeline,
@@ -131,8 +129,8 @@ def create_infer_model(logger,
             src_char_vocab_index, src_char_vocab_inverted_index, trg_word_embed_data, trg_word_vocab_size,
             trg_word_vocab_index, trg_word_vocab_inverted_index, trg_char_vocab_size, trg_char_vocab_index,
             trg_char_vocab_inverted_index) = prepare_dual_data(logger, hyperparams.data_eval_dual_file,
-                hyperparams.data_eval_dual_file_type, hyperparams.data_share_vocab, hyperparams.data_src_word_vocab_file,
-                hyperparams.data_src_word_vocab_size, hyperparams.data_src_word_vocab_threshold,
+                hyperparams.data_eval_dual_file_type, hyperparams.train_eval_batch_size, hyperparams.data_share_vocab,
+                hyperparams.data_src_word_vocab_file, hyperparams.data_src_word_vocab_size, hyperparams.data_src_word_vocab_threshold,
                 hyperparams.model_representation_src_word_embed_dim, hyperparams.data_src_embed_file,
                 hyperparams.data_src_embed_full_file, hyperparams.model_representation_src_word_embed_pretrained,
                 hyperparams.data_src_word_unk, hyperparams.data_src_word_pad, hyperparams.model_representation_src_word_feat_enable,
@@ -162,22 +160,22 @@ def create_infer_model(logger,
                 trg_word_vocab_index, hyperparams.data_trg_word_max_length, hyperparams.data_trg_word_pad,
                 hyperparams.model_representation_trg_word_feat_enable, trg_char_vocab_index, hyperparams.data_trg_char_max_length,
                 hyperparams.data_trg_char_pad, hyperparams.model_representation_trg_char_feat_enable, hyperparams.data_num_parallel)
-
+            
             logger.log_print("# create infer label dataset")
             input_label_placeholder = tf.placeholder(shape=[None], dtype=tf.string)
             input_label_dataset = tf.data.Dataset.from_tensor_slices(input_label_placeholder)
             input_label_dataset = create_label_dataset(input_label_dataset, 1, hyperparams.data_num_parallel)
-
+            
             logger.log_print("# create infer data pipeline")
             data_size_placeholder = tf.placeholder(shape=[], dtype=tf.int64)
-            batch_size_placeholder = tf.placeholder(shape=[], dtype=tf.int64)
             data_pipeline = create_dynamic_pipeline(input_src_word_dataset, input_src_char_dataset,
                 input_trg_word_dataset, input_trg_char_dataset, input_label_dataset, src_word_vocab_index,
                 hyperparams.data_src_word_pad, hyperparams.model_representation_src_word_feat_enable, src_char_vocab_index,
                 hyperparams.data_src_char_pad, hyperparams.model_representation_src_char_feat_enable, trg_word_vocab_index,
                 hyperparams.data_trg_word_pad, hyperparams.model_representation_trg_word_feat_enable, trg_char_vocab_index,
-                hyperparams.data_trg_char_pad, hyperparams.model_representation_trg_char_feat_enable, None, False, 0,
-                input_src_placeholder, input_trg_placeholder, input_label_placeholder, data_size_placeholder, batch_size_placeholder)
+                hyperparams.data_trg_char_pad, hyperparams.model_representation_trg_char_feat_enable,
+                None, False, 0, hyperparams.train_eval_batch_size,
+                data_size_placeholder, input_src_placeholder, input_trg_placeholder, input_label_placeholder)
         else:
             if src_word_embed_data is not None and trg_word_embed_data is not None:
                 external_data["src_word_embed"] = src_word_embed_data
@@ -208,7 +206,7 @@ def create_infer_model(logger,
                 hyperparams.data_src_char_pad, hyperparams.model_representation_src_char_feat_enable, trg_word_vocab_index,
                 hyperparams.data_trg_word_pad, hyperparams.model_representation_trg_word_feat_enable, trg_char_vocab_index,
                 hyperparams.data_trg_char_pad, hyperparams.model_representation_trg_char_feat_enable,
-                None, False, 0, len(input_data), hyperparams.train_eval_batch_size)
+                None, False, 0, hyperparams.train_eval_batch_size, len(input_data))
         
         model_creator = get_model_creator(hyperparams.model_type)
         model = model_creator(logger=logger, hyperparams=hyperparams, data_pipeline=data_pipeline,
