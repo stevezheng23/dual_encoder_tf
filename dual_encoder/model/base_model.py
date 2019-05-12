@@ -226,7 +226,7 @@ class BaseModel(object):
         input_trg_sample = tf.concat(input_trg_sample_list, axis=0)
         input_trg_sample_mask = tf.concat(input_trg_sample_mask_list, axis=0)
         
-        return input_src_sample, input_src_sample_mask, input_trg_sample, input_trg_sample_mask_list
+        return input_src_sample, input_src_sample_mask, input_trg_sample, input_trg_sample_mask
     
     def _neg_sampling_indice(self,
                              batch_size,
