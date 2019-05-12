@@ -706,7 +706,7 @@ class StackedConvolutionBlock(object):
             for i in range(self.num_layer):
                 layer_scope = "layer_{0}".format(i)
                 layer_dropout = ((self.num_conv + 1) * i + 1, num_sublayer, self.layer_dropout)
-                block_layer = ConvolutionBlock(num_conv=self.num_conv, unit_dim=self.unit_dim, window_size=self.window_size
+                block_layer = ConvolutionBlock(num_conv=self.num_conv, unit_dim=self.unit_dim, window_size=self.window_size,
                     activation=self.activation, dropout=self.dropout, layer_dropout=layer_dropout,
                     num_gpus=self.num_gpus, default_gpu_id=self.default_gpu_id, regularizer=self.regularizer,
                     random_seed=self.random_seed, trainable=self.trainable, scope=layer_scope)
