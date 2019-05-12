@@ -41,8 +41,10 @@ class BaseModel(object):
         self.train_summary = None
         self.infer_summary = None
         
-        self.word_embedding = external_data["word_embedding"] if external_data is not None and "word_embedding" in external_data else None
-        self.word_embedding_placeholder = None
+        self.src_word_embed = external_data["src_word_embed"] if external_data is not None and "src_word_embed" in external_data else None
+        self.trg_word_embed = external_data["trg_word_embed"] if external_data is not None and "trg_word_embed" in external_data else None
+        self.src_word_embed_placeholder = None
+        self.trg_word_embed_placeholder = None
         
         self.batch_size = tf.size(tf.reduce_max(self.data_pipeline.input_label_mask, axis=-2))
         self.neg_num = self.hyperparams.train_neg_num
@@ -244,15 +246,18 @@ class BaseModel(object):
     
     def train(self,
               sess,
-              word_embedding):
+              src_word_embed=None,
+              trg_word_embed=None):
         """train model"""
-        feed_word_embed = (self.hyperparams.model_representation_word_embed_pretrained and
-            word_embedding is not None and self.word_embedding_placeholder is not None)
+        feed_word_embed = (self.hyperparams.model_representation_src_word_embed_pretrained and
+            self.hyperparams.model_trg_representation_word_embed_pretrained and
+            src_word_embed is not None and self.src_word_embed_placeholder is not None and
+            trg_word_embed is not None and self.trg_word_embed_placeholder is not None)
         
         if feed_word_embed == True:
             (_, loss, learning_rate, global_step, batch_size, summary) = sess.run([self.update_op,
                 self.train_loss, self.learning_rate, self.global_step, self.batch_size, self.train_summary],
-                feed_dict={self.word_embedding_placeholder: word_embedding})
+                feed_dict={self.src_word_embed_placeholder: src_word_embed, self.trg_word_embed_placeholder: trg_word_embed})
         else:
             _, loss, learning_rate, global_step, batch_size, summary = sess.run([self.update_op,
                 self.train_loss, self.learning_rate, self.global_step, self.batch_size, self.train_summary])
@@ -264,13 +269,15 @@ class BaseModel(object):
               sess,
               word_embedding):
         """infer model"""
-        feed_word_embed = (self.hyperparams.model_representation_word_embed_pretrained and
-            word_embedding is not None and self.word_embedding_placeholder is not None)
+        feed_word_embed = (self.hyperparams.model_representation_src_word_embed_pretrained and
+            self.hyperparams.model_trg_representation_word_embed_pretrained and
+            src_word_embed is not None and self.src_word_embed_placeholder is not None and
+            trg_word_embed is not None and self.trg_word_embed_placeholder is not None)
         
         if feed_word_embed == True:
             (infer_predict, batch_size,
                 summary) = sess.run([self.infer_predict, self.batch_size, self.infer_summary],
-                    feed_dict={self.word_embedding_placeholder: word_embedding})
+                    feed_dict={self.src_word_embed_placeholder: src_word_embed, self.trg_word_embed_placeholder: trg_word_embed})
         else:
             (infer_predict, batch_size,
                 summary) = sess.run([self.infer_predict, self.batch_size, self.infer_summary])

@@ -13,11 +13,13 @@ __all__ = ["TrainModel", "InferModel",
            "init_model", "load_model"]
 
 class TrainModel(collections.namedtuple("TrainModel",
-    ("graph", "model", "data_pipeline", "word_embedding", "input_data", "input_src_data", "input_trg_data", "input_label_data"))):
+    ("graph", "model", "data_pipeline", "src_word_embed", "trg_word_embed",
+     "input_data", "input_src_data", "input_trg_data", "input_label_data"))):
     pass
 
 class InferModel(collections.namedtuple("InferModel",
-    ("graph", "model", "data_pipeline", "word_embedding", "input_data", "input_src_data", "input_trg_data", "input_label_data"))):
+    ("graph", "model", "data_pipeline", "src_word_embed", "trg_word_embed",
+     "input_data", "input_src_data", "input_trg_data", "input_label_data"))):
     pass
 
 def create_train_model(logger,
@@ -39,8 +41,8 @@ def create_train_model(logger,
                 hyperparams.data_src_char_unk, hyperparams.data_src_char_pad, hyperparams.model_representation_src_char_feat_enable,
                 hyperparams.data_trg_word_vocab_file, hyperparams.data_trg_word_vocab_size, hyperparams.data_trg_word_vocab_threshold,
                 hyperparams.model_representation_trg_word_embed_dim, hyperparams.data_trg_embed_file,
-                hyperparams.data_trg_embed_full_file, hyperparams.data_trg_word_unk, hyperparams.data_trg_word_pad,
-                hyperparams.model_representation_trg_word_feat_enable, hyperparams.model_representation_trg_word_embed_pretrained,
+                hyperparams.data_trg_embed_full_file, hyperparams.model_representation_trg_word_embed_pretrained,
+                hyperparams.data_trg_word_unk, hyperparams.data_trg_word_pad, hyperparams.model_representation_trg_word_feat_enable,
                 hyperparams.data_trg_char_vocab_file, hyperparams.data_trg_char_vocab_size, hyperparams.data_trg_char_vocab_threshold,
                 hyperparams.data_trg_char_unk, hyperparams.data_trg_char_pad, hyperparams.model_representation_trg_char_feat_enable)
         
@@ -79,8 +81,9 @@ def create_train_model(logger,
                 hyperparams.train_random_seed, hyperparams.train_enable_shuffle, hyperparams.train_shuffle_buffer_size,
                 input_src_placeholder, input_trg_placeholder, input_label_placeholder, data_size_placeholder, batch_size_placeholder)
         else:
-            if word_embed_data is not None:
-                external_data["word_embedding"] = word_embed_data
+            if src_word_embed_data is not None and trg_word_embed_data is not None:
+                external_data["src_word_embed"] = src_word_embed_data
+                external_data["trg_word_embed"] = trg_word_embed_data
             
             logger.log_print("# create train source dataset")
             input_src_dataset = tf.data.Dataset.from_tensor_slices(input_src_data)
@@ -115,8 +118,8 @@ def create_train_model(logger,
             external_data=external_data, mode="train", scope=hyperparams.model_scope)
         
         return TrainModel(graph=graph, model=model, data_pipeline=data_pipeline,
-            word_embedding=word_embed_data, input_data=input_data, input_src_data=input_src_data,
-            input_trg_data=input_trg_data, input_label=input_label_data)
+            src_word_embed=src_word_embed_data, trg_word_embed=trg_word_embed_data, input_data=input_data,
+            input_src_data=input_src_data, input_trg_data=input_trg_data, input_label_data=input_label_data)
 
 def create_infer_model(logger,
                        hyperparams):
@@ -137,8 +140,8 @@ def create_infer_model(logger,
                 hyperparams.data_src_char_unk, hyperparams.data_src_char_pad, hyperparams.model_representation_src_char_feat_enable,
                 hyperparams.data_trg_word_vocab_file, hyperparams.data_trg_word_vocab_size, hyperparams.data_trg_word_vocab_threshold,
                 hyperparams.model_representation_trg_word_embed_dim, hyperparams.data_trg_embed_file,
-                hyperparams.data_trg_embed_full_file, hyperparams.data_trg_word_unk, hyperparams.data_trg_word_pad,
-                hyperparams.model_representation_trg_word_feat_enable, hyperparams.model_representation_trg_word_embed_pretrained,
+                hyperparams.data_trg_embed_full_file, hyperparams.model_representation_trg_word_embed_pretrained,
+                hyperparams.data_trg_word_unk, hyperparams.data_trg_word_pad, hyperparams.model_representation_trg_word_feat_enable,
                 hyperparams.data_trg_char_vocab_file, hyperparams.data_trg_char_vocab_size, hyperparams.data_trg_char_vocab_threshold,
                 hyperparams.data_trg_char_unk, hyperparams.data_trg_char_pad, hyperparams.model_representation_trg_char_feat_enable)
         
@@ -176,8 +179,9 @@ def create_infer_model(logger,
                 hyperparams.data_trg_char_pad, hyperparams.model_representation_trg_char_feat_enable, None, False, 0,
                 input_src_placeholder, input_trg_placeholder, input_label_placeholder, data_size_placeholder, batch_size_placeholder)
         else:
-            if word_embed_data is not None:
-                external_data["word_embedding"] = word_embed_data
+            if src_word_embed_data is not None and trg_word_embed_data is not None:
+                external_data["src_word_embed"] = src_word_embed_data
+                external_data["trg_word_embed"] = trg_word_embed_data
             
             logger.log_print("# create infer source dataset")
             input_src_dataset = tf.data.Dataset.from_tensor_slices(input_src_data)
@@ -211,8 +215,8 @@ def create_infer_model(logger,
             external_data=external_data, mode="infer", scope=hyperparams.model_scope)
         
         return InferModel(graph=graph, model=model, data_pipeline=data_pipeline,
-            word_embedding=word_embed_data, input_data=input_data, input_context=input_src_data,
-            input_response=input_trg_data, input_label=input_label_data)
+            src_word_embed=src_word_embed_data, trg_word_embed=trg_word_embed_data, input_data=input_data,
+            input_src_data=input_src_data, input_trg_data=input_trg_data, input_label_data=input_label_data)
 
 def get_model_creator(model_type):
     if model_type == "conv_enc":

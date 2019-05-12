@@ -314,7 +314,7 @@ def create_embedding_file(embedding_file,
     """create embedding file based on embedding table"""
     embedding_dir = os.path.dirname(embedding_file)
     if not os.path.exists(embedding_dir):
-        os.path.mkdir(embedding_dir)
+        os.mkdir(embedding_dir)
     
     if not os.path.exists(embedding_file):
         with codecs.getwriter("utf-8")(open(embedding_file, "wb")) as file:
@@ -362,7 +362,7 @@ def create_vocab_file(vocab_file,
     """create vocab file based on vocab table"""
     vocab_dir = os.path.dirname(vocab_file)
     if not os.path.exists(vocab_dir):
-        os.path.mkdir(vocab_dir)
+        os.mkdir(vocab_dir)
     
     if not os.path.exists(vocab_file):
         with codecs.getwriter("utf-8")(open(vocab_file, "wb")) as file:
