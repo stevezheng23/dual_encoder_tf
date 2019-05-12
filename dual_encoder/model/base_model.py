@@ -182,6 +182,8 @@ class BaseModel(object):
         if loss_type == "neg_sampling":
             masked_label = label * label_mask
             masked_predict = predict * predict_mask
+            print(masked_label.get_shape())
+            print(masked_predict.get_shape())
             cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=masked_predict, labels=masked_label)
             cross_entropy_mask = tf.reduce_max(tf.concat([label_mask, predict_mask], axis=-1), axis=-1, keepdims=True)
             masked_cross_entropy = cross_entropy * cross_entropy_mask
@@ -227,6 +229,20 @@ class BaseModel(object):
         input_trg_sample_mask = tf.concat(input_trg_sample_mask_list, axis=0)
         
         return input_src_sample, input_src_sample_mask, input_trg_sample, input_trg_sample_mask
+    
+    def _neg_sampling_label(self,
+                            batch_size,
+                            neg_num):
+        """generate label for negative sampling"""
+        label_list = []
+        for index in range(batch_size):
+            label = [1] + [0] * neg_num
+            label_list.append(label)
+        
+        label = tf.reshape(tf.convert_to_tensor(label_list, dtype=tf.float32), shape=[batch_size, neg_num+1, 1])
+        label_mask = label
+        
+        return label, label_mask
     
     def _neg_sampling_indice(self,
                              batch_size,
