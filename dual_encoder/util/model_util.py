@@ -160,12 +160,12 @@ def create_infer_model(logger,
                 trg_word_vocab_index, hyperparams.data_trg_word_max_length, hyperparams.data_trg_word_pad,
                 hyperparams.model_representation_trg_word_feat_enable, trg_char_vocab_index, hyperparams.data_trg_char_max_length,
                 hyperparams.data_trg_char_pad, hyperparams.model_representation_trg_char_feat_enable, hyperparams.data_num_parallel)
-
+            
             logger.log_print("# create infer label dataset")
             input_label_placeholder = tf.placeholder(shape=[None], dtype=tf.string)
             input_label_dataset = tf.data.Dataset.from_tensor_slices(input_label_placeholder)
             input_label_dataset = create_label_dataset(input_label_dataset, 1, hyperparams.data_num_parallel)
-
+            
             logger.log_print("# create infer data pipeline")
             data_size_placeholder = tf.placeholder(shape=[], dtype=tf.int64)
             data_pipeline = create_dynamic_pipeline(input_src_word_dataset, input_src_char_dataset,
