@@ -373,7 +373,7 @@ class AttentionEncoder(BaseModel):
             
             if self.enable_negative_sampling == True:
                 (input_src_understanding, input_src_understanding_mask, input_trg_understanding,
-                    input_trg_understanding_mask) = self.negative_sampling(input_src_understanding,
+                    input_trg_understanding_mask) = self._neg_sampling(input_src_understanding,
                         input_src_understanding_mask, input_trg_understanding, input_trg_understanding_mask,
                         self.batch_size, self.neg_num, self.random_seed, self.indice_list)
         
@@ -474,7 +474,7 @@ class AttentionEncoder(BaseModel):
                     trg_interaction_unit_dim += src_understanding_unit_dim
                 
                 self.logger.log_print("# build target interaction fusion layer")
-                if share_representation == True:
+                if share_interaction == True:
                     trg_fusion_layer = src_fusion_layer
                 else:
                     trg_fusion_layer = FusionModule(input_unit_dim=trg_interaction_unit_dim,
@@ -505,9 +505,11 @@ class AttentionEncoder(BaseModel):
         
         with tf.variable_scope("matching", reuse=tf.AUTO_REUSE):
             if matching_score_type == "cosine":
+                self.logger.log_print("# build cosine matching layer")
                 score_layer = CosineScore(pooling_type=matching_pooling_type,
                     num_gpus=self.num_gpus, default_gpu_id=self.default_gpu_id)
             elif matching_score_type == "dense":
+                self.logger.log_print("# build dense matching layer")
                 score_layer = DenseScore(pooling_type=matching_pooling_type, num_layer=matching_num_layer,
                     unit_dim=matching_unit_dim, activation=matching_hidden_activation, dropout=matching_dropout,
                     num_gpus=self.num_gpus, default_gpu_id=self.default_gpu_id, regularizer=self.regularizer,
@@ -544,8 +546,7 @@ class AttentionEncoder(BaseModel):
                 input_trg_interaction_mask) = self._build_interaction_layer(input_src_understanding,
                     input_src_understanding_mask, input_trg_understanding, input_trg_understanding_mask)
             
-            input_matching, input_matching_mask = self._build_matching_layer(input_src_understanding,
-                input_src_understanding_mask, input_trg_understanding, input_trg_understanding_mask, input_src_interaction,
+            input_matching, input_matching_mask = self._build_matching_layer(input_src_interaction,
                 input_src_interaction_mask, input_trg_interaction, input_trg_interaction_mask)
             
             predict = input_matching
