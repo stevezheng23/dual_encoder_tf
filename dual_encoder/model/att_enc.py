@@ -47,9 +47,7 @@ class AttentionEncoder(BaseModel):
             
             if self.enable_negative_sampling == True:
                 self.indice_list = self._neg_sampling_indice(self.batch_size, self.neg_num, self.random_seed)
-                self.label = tf.reshape(tf.convert_to_tensor(self.indice_list, dtype=tf.float32),
-                    shape=[self.batch_size, self.neg_num+1, 1])
-                self.label_mask = self.label
+                label, label_mask = self._neg_sampling_label(self.batch_size, self.neg_num)
             
             """build graph for attention encoder"""
             self.logger.log_print("# build graph")
