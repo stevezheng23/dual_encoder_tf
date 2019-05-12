@@ -17,7 +17,7 @@ __all__ = ["DataPipeline", "create_dynamic_pipeline", "create_data_pipeline",
 class DataPipeline(collections.namedtuple("DataPipeline",
     ("initializer", "input_src_word", "input_src_char", "input_trg_word", "input_trg_char", "input_label",
      "input_src_word_mask", "input_src_char_mask", "input_trg_word_mask", "input_trg_char_mask", "input_label_mask",
-     "input_src_placeholder","input_trg_placeholder", "input_label_placeholder", "data_size_placeholder", "batch_size_placeholder"))):
+     "batch_size", "data_size_placeholder", "input_src_placeholder","input_trg_placeholder", "input_label_placeholder"))):
     pass
 
 def create_dynamic_pipeline(input_src_word_dataset,
@@ -40,11 +40,11 @@ def create_dynamic_pipeline(input_src_word_dataset,
                             random_seed,
                             enable_shuffle,
                             buffer_size,
+                            batch_size,
+                            data_size_placeholder,
                             input_src_placeholder,
                             input_trg_placeholder,
-                            input_label_placeholder,
-                            data_size_placeholder,
-                            batch_size_placeholder):
+                            input_label_placeholder):
     """create dynamic data pipeline for dual encoder"""
     default_pad_id = tf.constant(0, shape=[], dtype=tf.int32)
     default_dataset_tensor = tf.constant(0, shape=[1,1], dtype=tf.int32)
@@ -79,7 +79,7 @@ def create_dynamic_pipeline(input_src_word_dataset,
     if enable_shuffle == True:
         dataset = dataset.shuffle(buffer_size, random_seed)
     
-    dataset = dataset.batch(batch_size=batch_size_placeholder)
+    dataset = dataset.batch(batch_size=batch_size)
     dataset = dataset.prefetch(buffer_size=1)
     
     iterator = dataset.make_initializable_iterator()
@@ -122,9 +122,9 @@ def create_dynamic_pipeline(input_src_word_dataset,
         input_trg_word=input_trg_word, input_trg_char=input_trg_char, input_label=input_label,
         input_src_word_mask=input_src_word_mask, input_src_char_mask=input_src_char_mask,
         input_trg_word_mask=input_trg_word_mask, input_trg_char_mask=input_trg_char_mask,
-        input_label_mask=input_label_mask, input_src_placeholder=input_src_placeholder,
-        input_trg_placeholder=input_trg_placeholder, input_label_placeholder=input_label_placeholder,
-        data_size_placeholder=data_size_placeholder, batch_size_placeholder=batch_size_placeholder)
+        input_label_mask=input_label_mask, batch_size=batch_size,
+        data_size_placeholder=data_size_placeholder, input_src_placeholder=input_src_placeholder,
+        input_trg_placeholder=input_trg_placeholder, input_label_placeholder=input_label_placeholder)
 
 def create_data_pipeline(input_src_word_dataset,
                          input_src_char_dataset,
@@ -146,8 +146,8 @@ def create_data_pipeline(input_src_word_dataset,
                          random_seed,
                          enable_shuffle,
                          buffer_size,
-                         data_size,
-                         batch_size):
+                         batch_size,
+                         data_size):
     """create data pipeline for dual encoder"""
     default_pad_id = tf.constant(0, shape=[], dtype=tf.int32)
     default_dataset_tensor = tf.constant(0, shape=[1,1], dtype=tf.int32)
@@ -225,8 +225,9 @@ def create_data_pipeline(input_src_word_dataset,
         input_trg_word=input_trg_word, input_trg_char=input_trg_char, input_label=input_label,
         input_src_word_mask=input_src_word_mask, input_src_char_mask=input_src_char_mask,
         input_trg_word_mask=input_trg_word_mask, input_trg_char_mask=input_trg_char_mask,
-        input_label_mask=input_label_mask, input_src_placeholder=None, input_trg_placeholder=None,
-        input_label_placeholder=None, data_size_placeholder=None, batch_size_placeholder=None)
+        input_label_mask=input_label_mask, batch_size=batch_size,
+        data_size_placeholder=None, input_src_placeholder=None,
+        input_trg_placeholder=None, input_label_placeholder=None)
     
 def create_text_dataset(input_data_set,
                         word_vocab_index,
@@ -599,6 +600,7 @@ def prepare_data(logger,
 def prepare_dual_data(logger,
                       input_dual_file,
                       input_file_type,
+                      batch_size,
                       share_vocab,
                       src_word_vocab_file,
                       src_word_vocab_size,
@@ -638,6 +640,10 @@ def prepare_dual_data(logger,
     
     input_dual_size = len(input_dual_data)
     logger.log_print("# input dual data has {0} lines".format(input_dual_size))
+    
+    if input_dual_size % batch_size != 0:
+        pad_size = batch_size - input_dual_size % batch_size
+        input_dual_data = input_dual_data + input_dual_data[:pad_size] 
     
     input_src_data = [dual_data["source"] for dual_data in input_dual_data]
     input_trg_data = [dual_data["target"] for dual_data in input_dual_data]
