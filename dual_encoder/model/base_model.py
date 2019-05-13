@@ -378,6 +378,10 @@ class FusionModule(object):
         input_fusion = tf.concat(input_data_list, axis=-1)
         input_fusion_mask = tf.reduce_max(tf.concat(input_mask_list, axis=-1), axis=-1, keepdims=True)
         
+        if input_fusion.get_shape().as_list()[-1] is None:
+            input_fusion_shape = tf.shape(input_fusion)
+            input_fusion = tf.reshape(input_fusion, shape=tf.concat([input_fusion_shape[:-1], [self.input_unit_dim]], axis=0))
+                
         for fusion_layer in self.fusion_layer_list:
             input_fusion, input_fusion_mask = fusion_layer(input_fusion, input_fusion_mask)
         
