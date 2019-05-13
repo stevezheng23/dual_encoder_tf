@@ -158,7 +158,7 @@
     "model_interaction_trg2src_enable": false,
     "model_interaction_trg_fusion_type": "concate",
     "model_interaction_trg_fusion_num_layer": 1,
-    "model_interaction_trg_fusion_unit_dim": 12,
+    "model_interaction_trg_fusion_unit_dim": 128,
     "model_interaction_trg_fusion_hidden_activation": "relu",
     "model_interaction_trg_fusion_dropout": 0.2,
     "model_interaction_trg_fusion_trainable": true,
