@@ -230,6 +230,8 @@ class ConvolutionEncoder(BaseModel):
                 
                 input_src_feat_list.append(input_src_char_feat)
                 input_src_feat_mask_list.append(input_src_char_feat_mask)
+                
+                src_char_unit_dim = len(src_char_window_size) * src_char_unit_dim
             else:
                 src_char_unit_dim = 0
             
@@ -280,6 +282,8 @@ class ConvolutionEncoder(BaseModel):
                 
                 input_trg_feat_list.append(input_trg_char_feat)
                 input_trg_feat_mask_list.append(input_trg_char_feat_mask)
+                
+                trg_char_unit_dim = len(trg_char_window_size) * trg_char_unit_dim
             else:
                 trg_char_unit_dim = 0
             
@@ -649,8 +653,8 @@ class ConvolutionBlock(object):
                 self.num_gpus, self.default_gpu_id, self.regularizer, self.random_seed, self.trainable)
             
             conv_layer_dropout = [self.layer_dropout * float(i + self.sublayer_index) / self.num_sublayer for i in range(self.num_conv)]
-            self.conv_layer = create_convolution_layer("multi_sep_1d", self.num_conv, self.unit_dim,
-                self.unit_dim, 1, self.window_size, 1, "SAME", self.activation, [self.dropout] * self.num_conv, conv_layer_dropout,
+            self.conv_layer = create_convolution_layer("stacked_multi_sep_1d", self.num_conv, self.unit_dim,
+                self.unit_dim, self.window_size, 1, "SAME", self.activation, [self.dropout] * self.num_conv, conv_layer_dropout,
                 True, True, True, self.num_gpus, self.default_gpu_id, self.regularizer, self.random_seed, self.trainable)
             
             dense_layer_dropout = [self.layer_dropout * float(self.num_conv + self.sublayer_index) / self.num_sublayer]

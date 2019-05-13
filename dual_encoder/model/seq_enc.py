@@ -229,6 +229,8 @@ class SequenceEncoder(BaseModel):
                 
                 input_src_feat_list.append(input_src_char_feat)
                 input_src_feat_mask_list.append(input_src_char_feat_mask)
+                
+                src_char_unit_dim = len(src_char_window_size) * src_char_unit_dim
             else:
                 src_char_unit_dim = 0
             
@@ -279,6 +281,8 @@ class SequenceEncoder(BaseModel):
                 
                 input_trg_feat_list.append(input_trg_char_feat)
                 input_trg_feat_mask_list.append(input_trg_char_feat_mask)
+                
+                trg_char_unit_dim = len(trg_char_window_size) * trg_char_unit_dim
             else:
                 trg_char_unit_dim = 0
             
@@ -359,8 +363,8 @@ class SequenceEncoder(BaseModel):
                                  input_trg_understanding,
                                  input_trg_understanding_mask):
         """build interaction layer for sequence encoder model"""
-        src_understanding_unit_dim = self.hyperparams.model_understanding_src_unit_dim
-        trg_understanding_unit_dim = self.hyperparams.model_understanding_trg_unit_dim
+        src_understanding_unit_dim = self.hyperparams.model_understanding_src_unit_dim * 2
+        trg_understanding_unit_dim = self.hyperparams.model_understanding_trg_unit_dim * 2
         src2trg_interaction_attention_dim = self.hyperparams.model_interaction_src2trg_attention_dim
         src2trg_interaction_score_type = self.hyperparams.model_interaction_src2trg_score_type
         src2trg_interaction_dropout = self.hyperparams.model_interaction_src2trg_dropout if self.mode == "train" else 0.0
