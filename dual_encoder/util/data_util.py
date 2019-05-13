@@ -600,6 +600,7 @@ def prepare_data(logger,
 def prepare_dual_data(logger,
                       input_dual_file,
                       input_file_type,
+                      batch_padding_enable,
                       batch_size,
                       share_vocab,
                       src_word_vocab_file,
@@ -641,9 +642,9 @@ def prepare_dual_data(logger,
     input_dual_size = len(input_dual_data)
     logger.log_print("# input dual data has {0} lines".format(input_dual_size))
     
-    if input_dual_size % batch_size != 0:
-        pad_size = batch_size - input_dual_size % batch_size
-        input_dual_data = input_dual_data + input_dual_data[:pad_size] 
+    if batch_padding_enable == True and input_dual_size % batch_size != 0:
+        padding_size = batch_size - input_dual_size % batch_size
+        input_dual_data = input_dual_data + input_dual_data[:padding_size] 
     
     input_src_data = [dual_data["source"] for dual_data in input_dual_data]
     input_trg_data = [dual_data["target"] for dual_data in input_dual_data]

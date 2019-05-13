@@ -46,8 +46,8 @@ class AttentionEncoder(BaseModel):
             label_mask = self.data_pipeline.input_label_mask
             
             if self.enable_negative_sampling == True:
-                self.indice_list = self._neg_sampling_indice(self.batch_size, self.neg_num, self.random_seed)
-                label, label_mask = self._neg_sampling_label(self.batch_size, self.neg_num)
+                self.indice_list = self._neg_sampling_indice(self.max_batch_size, self.neg_num, self.random_seed)
+                label, label_mask = self._neg_sampling_label(self.max_batch_size, self.neg_num)
             
             """build graph for attention encoder"""
             self.logger.log_print("# build graph")
@@ -373,7 +373,7 @@ class AttentionEncoder(BaseModel):
                 (input_src_understanding, input_src_understanding_mask, input_trg_understanding,
                     input_trg_understanding_mask) = self._neg_sampling(input_src_understanding,
                         input_src_understanding_mask, input_trg_understanding, input_trg_understanding_mask,
-                        self.batch_size, self.neg_num, self.random_seed, self.indice_list)
+                        self.max_batch_size, self.neg_num, self.random_seed, self.indice_list)
         
         return input_src_understanding, input_src_understanding_mask, input_trg_understanding, input_trg_understanding_mask
     
