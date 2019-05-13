@@ -46,10 +46,8 @@ class ConvolutionEncoder(BaseModel):
             label_mask = self.data_pipeline.input_label_mask
             
             if self.enable_negative_sampling == True:
-                self.indice_list = self._neg_sampling_indice(self.batch_size, self.neg_num, self.random_seed)
-                self.label = tf.reshape(tf.convert_to_tensor(self.indice_list, dtype=tf.float32),
-                    shape=[self.batch_size, self.neg_num+1, 1])
-                self.label_mask = self.label
+                self.indice_list = self._neg_sampling_indice(self.max_batch_size, self.neg_num, self.random_seed)
+                label, label_mask = self._neg_sampling_label(self.max_batch_size, self.neg_num)
             
             """build graph for convolution encoder"""
             self.logger.log_print("# build graph")
@@ -204,7 +202,7 @@ class ConvolutionEncoder(BaseModel):
             if src_word_feat_enable == True:
                 self.logger.log_print("# build word-level source representation layer")
                 src_word_feat_layer = WordFeat(vocab_size=src_word_vocab_size, embed_dim=src_word_embed_dim,
-                    dropout=src_word_dropout, pretrained=src_word_embed_pretrained, embedding=self.src_word_embedding,
+                    dropout=src_word_dropout, pretrained=src_word_embed_pretrained, embedding=self.src_word_embed,
                     num_gpus=self.num_gpus, default_gpu_id=self.default_gpu_id, regularizer=self.regularizer, 
                     random_seed=self.random_seed, trainable=src_word_feat_trainable)
                 
@@ -251,7 +249,7 @@ class ConvolutionEncoder(BaseModel):
                     trg_word_feat_layer = src_word_feat_layer
                 else:
                     trg_word_feat_layer = WordFeat(vocab_size=trg_word_vocab_size, embed_dim=trg_word_embed_dim,
-                        dropout=trg_word_dropout, pretrained=trg_word_embed_pretrained, embedding=self.trg_word_embedding,
+                        dropout=trg_word_dropout, pretrained=trg_word_embed_pretrained, embedding=self.trg_word_embed,
                         num_gpus=self.num_gpus, default_gpu_id=self.default_gpu_id, regularizer=self.regularizer, 
                         random_seed=self.random_seed, trainable=trg_word_feat_trainable)
                 
@@ -373,9 +371,9 @@ class ConvolutionEncoder(BaseModel):
             
             if self.enable_negative_sampling == True:
                 (input_src_understanding, input_src_understanding_mask, input_trg_understanding,
-                    input_trg_understanding_mask) = self.negative_sampling(input_src_understanding,
+                    input_trg_understanding_mask) = self._neg_sampling(input_src_understanding,
                         input_src_understanding_mask, input_trg_understanding, input_trg_understanding_mask,
-                        self.batch_size, self.neg_num, self.random_seed, self.indice_list)
+                        self.max_batch_size, self.neg_num, self.random_seed, self.indice_list)
         
         return input_src_understanding, input_src_understanding_mask, input_trg_understanding, input_trg_understanding_mask
     
@@ -474,7 +472,7 @@ class ConvolutionEncoder(BaseModel):
                     trg_interaction_unit_dim += src_understanding_unit_dim
                 
                 self.logger.log_print("# build target interaction fusion layer")
-                if share_representation == True:
+                if share_interaction == True:
                     trg_fusion_layer = src_fusion_layer
                 else:
                     trg_fusion_layer = FusionModule(input_unit_dim=trg_interaction_unit_dim,
@@ -505,9 +503,11 @@ class ConvolutionEncoder(BaseModel):
         
         with tf.variable_scope("matching", reuse=tf.AUTO_REUSE):
             if matching_score_type == "cosine":
+                self.logger.log_print("# build cosine matching layer")
                 score_layer = CosineScore(pooling_type=matching_pooling_type,
                     num_gpus=self.num_gpus, default_gpu_id=self.default_gpu_id)
             elif matching_score_type == "dense":
+                self.logger.log_print("# build dense matching layer")
                 score_layer = DenseScore(pooling_type=matching_pooling_type, num_layer=matching_num_layer,
                     unit_dim=matching_unit_dim, activation=matching_hidden_activation, dropout=matching_dropout,
                     num_gpus=self.num_gpus, default_gpu_id=self.default_gpu_id, regularizer=self.regularizer,
@@ -544,8 +544,7 @@ class ConvolutionEncoder(BaseModel):
                 input_trg_interaction_mask) = self._build_interaction_layer(input_src_understanding,
                     input_src_understanding_mask, input_trg_understanding, input_trg_understanding_mask)
             
-            input_matching, input_matching_mask = self._build_matching_layer(input_src_understanding,
-                input_src_understanding_mask, input_trg_understanding, input_trg_understanding_mask, input_src_interaction,
+            input_matching, input_matching_mask = self._build_matching_layer(input_src_interaction,
                 input_src_interaction_mask, input_trg_interaction, input_trg_interaction_mask)
             
             predict = input_matching
