@@ -182,8 +182,6 @@ class BaseModel(object):
         if loss_type == "neg_sampling":
             masked_label = label * label_mask
             masked_predict = predict * predict_mask
-            print(masked_label.get_shape())
-            print(masked_predict.get_shape())
             cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=masked_predict, labels=masked_label)
             cross_entropy_mask = tf.reduce_max(tf.concat([label_mask, predict_mask], axis=-1), axis=-1, keepdims=True)
             masked_cross_entropy = cross_entropy * cross_entropy_mask
@@ -267,39 +265,39 @@ class BaseModel(object):
               trg_word_embed=None):
         """train model"""
         feed_word_embed = (self.hyperparams.model_representation_src_word_embed_pretrained and
-            self.hyperparams.model_trg_representation_word_embed_pretrained and
+            self.hyperparams.model_representation_trg_word_embed_pretrained and
             src_word_embed is not None and self.src_word_embed_placeholder is not None and
             trg_word_embed is not None and self.trg_word_embed_placeholder is not None)
         
         if feed_word_embed == True:
-            (_, loss, learning_rate, global_step, batch_size, summary) = sess.run([self.update_op,
-                self.train_loss, self.learning_rate, self.global_step, self.batch_size, self.train_summary],
+            (_, loss, learning_rate, global_step, summary) = sess.run([self.update_op,
+                self.train_loss, self.learning_rate, self.global_step, self.train_summary],
                 feed_dict={self.src_word_embed_placeholder: src_word_embed, self.trg_word_embed_placeholder: trg_word_embed})
         else:
-            _, loss, learning_rate, global_step, batch_size, summary = sess.run([self.update_op,
-                self.train_loss, self.learning_rate, self.global_step, self.batch_size, self.train_summary])
+            _, loss, learning_rate, global_step, summary = sess.run([self.update_op,
+                self.train_loss, self.learning_rate, self.global_step, self.train_summary])
                 
         return TrainResult(loss=loss, learning_rate=learning_rate,
-            global_step=global_step, batch_size=batch_size, summary=summary)
+            global_step=global_step, batch_size=None, summary=summary)
     
     def infer(self,
               sess,
               word_embedding):
         """infer model"""
         feed_word_embed = (self.hyperparams.model_representation_src_word_embed_pretrained and
-            self.hyperparams.model_trg_representation_word_embed_pretrained and
+            self.hyperparams.model_representation_trg_word_embed_pretrained and
             src_word_embed is not None and self.src_word_embed_placeholder is not None and
             trg_word_embed is not None and self.trg_word_embed_placeholder is not None)
         
         if feed_word_embed == True:
-            (infer_predict, batch_size,
-                summary) = sess.run([self.infer_predict, self.batch_size, self.infer_summary],
+            (infer_predict,
+                summary) = sess.run([self.infer_predict, self.infer_summary],
                     feed_dict={self.src_word_embed_placeholder: src_word_embed, self.trg_word_embed_placeholder: trg_word_embed})
         else:
-            (infer_predict, batch_size,
-                summary) = sess.run([self.infer_predict, self.batch_size, self.infer_summary])
+            (infer_predict,
+                summary) = sess.run([self.infer_predict, self.infer_summary])
         
-        return InferResult(predict=infer_predict, batch_size=batch_size, summary=summary)
+        return InferResult(predict=infer_predict, batch_size=None, summary=summary)
         
     def _get_train_summary(self):
         """get train summary"""
