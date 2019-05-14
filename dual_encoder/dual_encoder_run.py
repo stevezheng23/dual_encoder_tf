@@ -1,6 +1,7 @@
 import argparse
 import os.path
 import time
+import uuid
 
 import numpy as np
 import tensorflow as tf
@@ -60,37 +61,48 @@ def extrinsic_eval(logger,
     
     data_size = data_dict["data_size"]
     input_data = data_dict["input_data"]
-    sample_predict = []
+    input_predict = []
     while True:
         try:
             infer_result = model.model.infer(sess, model.src_word_embed, model.trg_word_embed)
-            sample_predict.extend(infer_result.predict)
+            input_predict.extend(infer_result.predict)
         except  tf.errors.OutOfRangeError:
             break
     
-    sample_list = []
+    sample_dict = {}
     for i in range(data_size):
-        sample = {
-            "id": input_data[i]["id"],
-            "source": input_data[i]["source"],
-            "target": input_data[i]["target"],
-            "label": float(input_data[i]["label"]),
-            "predict": float(sample_predict[i][0])
-        }
+        source = input_data[i]["source"]
+        target = input_data[i]["target"]
+        label = str(input_data[i]["label"])
+        predict = str(input_predict[i][0])
+        
+        if source not in sample_dict:
+            sample_dict[source] = {
+                "id": str(uuid.uuid4()),
+                "source": source,
+                "targets": []
+            }
+        
+        sample_dict[source]["targets"].append({
+            "text": target,
+            "label": label,
+            "predict": predict
+        })
     
-    predict_list = [sample["label"] for sample in sample_list]
-    label_list = [sample["predict"] for sample in sample_list]
+    sample_list = list(sample_dict.values())
+    predict_list = [[float(target["predict"]) for target in sample["targets"]] for sample in sample_list]
+    label_list = [[float(target["label"]) for target in sample["targets"]] for sample in sample_list]
     
     eval_result_list = []
     for metric in metric_list:
         score = evaluate_from_data(predict_list, label_list, metric)
         summary_writer.add_value_summary(metric, score, global_step)
         eval_result = ExtrinsicEvalLog(metric=metric,
-            score=score, sample_output=None, sample_size=len(sample_output))
+            score=score, sample_output=None, sample_size=len(sample_list))
         eval_result_list.append(eval_result)
     
     eval_result_detail = ExtrinsicEvalLog(metric="detail",
-        score=0.0, sample_output=sample_output, sample_size=len(sample_output))
+        score=0.0, sample_output=sample_list, sample_size=len(sample_list))
     basic_info = BasicInfoEvalLog(epoch=epoch, global_step=global_step)
     
     logger.update_extrinsic_eval(eval_result_list, basic_info)
