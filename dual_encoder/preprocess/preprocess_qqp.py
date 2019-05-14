@@ -99,11 +99,12 @@ def preprocess(file_name,
     with open(file_name, "rb") as file:
         for line in file:
             items = [item for item in line.decode("utf-8").strip().split('\t') if item]
+            
             if len(items) < 6:
                 continue
             
             if (items[0] == "id" and items[1] == "qid1" and items[2] == "qid2" and
-                items[3] == "question1" and items[3] == "question2" and items[3] == "is_duplicate"):
+                items[3] == "question1" and items[4] == "question2" and items[5] == "is_duplicate"):
                 continue
             
             source = spacy_tokenize(items[3].strip())
