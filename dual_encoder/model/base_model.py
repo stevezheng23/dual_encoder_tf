@@ -283,7 +283,8 @@ class BaseModel(object):
     
     def infer(self,
               sess,
-              word_embedding):
+              src_word_embed=None,
+              trg_word_embed=None):
         """infer model"""
         feed_word_embed = (self.hyperparams.model_representation_src_word_embed_pretrained and
             self.hyperparams.model_representation_trg_word_embed_pretrained and
