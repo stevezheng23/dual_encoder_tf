@@ -548,7 +548,7 @@ class Attention(object):
                 output_mask = tf.reshape(output_mask,
                     shape=tf.concat([input_src_mask_shape[:-2], input_trg_mask_shape[-2:]], axis=0))
         
-        return output_attention, output_mask, output_attention_score, output_score_mask
+        return output_attention, output_mask
     
     def get_attention_matrix(self):
         return self.attention_matrix

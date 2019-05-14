@@ -431,9 +431,9 @@ class AttentionEncoder(BaseModel):
                         False, False, False, None, self.num_gpus, self.default_gpu_id,
                         self.regularizer, self.random_seed, src2trg_interaction_trainable)
                     
-                    (input_src2trg_interaction, input_src2trg_interaction_mask,
-                        _, _)= src2trg_interaction_layer(input_src_understanding, input_trg_understanding,
-                            input_src_understanding_mask, input_trg_understanding_mask)
+                    (input_src2trg_interaction,
+                        input_src2trg_interaction_mask,)= src2trg_interaction_layer(input_src_understanding,
+                            input_trg_understanding, input_src_understanding_mask, input_trg_understanding_mask)
                     
                     if share_interaction == True:
                         attention_matrix = src2trg_interaction_layer.get_attention_matrix()
@@ -467,9 +467,9 @@ class AttentionEncoder(BaseModel):
                         False, False, False, attention_matrix, self.num_gpus, self.default_gpu_id,
                         self.regularizer, self.random_seed, trg2src_interaction_trainable)
                     
-                    (input_trg2src_interaction, input_trg2src_interaction_mask,
-                        _, _) = trg2src_interaction_layer(input_trg_understanding, input_src_understanding,
-                            input_trg_understanding_mask, input_src_understanding_mask)
+                    (input_trg2src_interaction,
+                        input_trg2src_interaction_mask) = trg2src_interaction_layer(input_trg_understanding,
+                            input_src_understanding, input_trg_understanding_mask, input_src_understanding_mask)
                     
                     input_trg_interaction_list.append(input_trg2src_interaction)
                     input_trg_interaction_mask_list.append(input_trg2src_interaction_mask)
