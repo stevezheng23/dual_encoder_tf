@@ -238,7 +238,7 @@ class BaseModel(object):
             label = [1] + [0] * neg_num
             label_list.append(label)
         
-        label = tf.reshape(tf.convert_to_tensor(label_list, dtype=tf.float32), shape=[batch_size, neg_num+1, 1])
+        label = tf.reshape(tf.convert_to_tensor(label_list, dtype=tf.float32), shape=[batch_size, neg_num+1])
         label_mask = label
         
         return label, label_mask
@@ -419,8 +419,8 @@ class CosineScore(object):
             input_trg_norm = tf.expand_dims(tf.nn.l2_normalize(input_trg_pool, axis=-1), axis=-1)
             input_trg_norm_mask = tf.expand_dims(input_trg_pool_mask, axis=-1)
             
-            output_matching = tf.squeeze(tf.matmul(input_src_norm, input_trg_norm), axis=[-1])
-            output_matching_mask = tf.squeeze(tf.matmul(input_src_norm_mask, input_trg_norm_mask), axis=[-1])
+            output_matching = tf.squeeze(tf.matmul(input_src_norm, input_trg_norm), axis=[-2,-1])
+            output_matching_mask = tf.squeeze(tf.matmul(input_src_norm_mask, input_trg_norm_mask), axis=[-2,-1])
         
         return output_matching, output_matching_mask
 
@@ -454,11 +454,11 @@ class DenseScore(object):
         with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
             self.pooling_layer = create_pooling_layer(self.pooling_type, 1, 1, self.num_gpus, self.default_gpu_id)
             
-            self.dense_layer = create_dense_layer("single", self.num_layer, self.unit_dim,
-                1, self.activation, [self.dropout] * self.num_layer, 0.0, True, True, True,
+            self.dense_layer = create_dense_layer("double", self.num_layer, self.unit_dim,
+                1, self.activation, [self.dropout] * self.num_layer, None, True, True, True,
                 self.num_gpus, self.default_gpu_id, self.regularizer, self.random_seed, self.trainable)
             
-            self.project_layer = create_dense_layer("single", 1, 1, 1, None, [0.0], 0.0, False, False, False,
+            self.project_layer = create_dense_layer("single", 1, 1, 1, None, [0.0], None, False, False, False,
                 self.num_gpus, self.default_gpu_id, self.regularizer, self.random_seed, self.trainable)
     
     def __call__(self,
@@ -475,7 +475,10 @@ class DenseScore(object):
             input_norm_mask = tf.reduce_max(tf.concat([input_src_pool_mask, input_trg_pool_mask], axis=-1), axis=-1, keepdims=True)
             
             input_dense, input_dense_mask = self.dense_layer(input_norm, input_norm_mask)
-            output_matching, output_matching_mask = self.project_layer(input_dense, input_dense_mask)
+            input_project, input_project_mask = self.project_layer(input_dense, input_dense_mask)
+            
+            output_matching = tf.squeeze(input_project, axis=-1)
+            output_matching_mask = tf.squeeze(input_project_mask, axis=-1)
         
         return output_matching, output_matching_mask
 
