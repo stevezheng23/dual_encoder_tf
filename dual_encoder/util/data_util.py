@@ -659,8 +659,8 @@ def prepare_dual_data(logger,
                 src_char_vocab_file, src_char_vocab_size, src_char_vocab_threshold, src_char_unk, src_char_pad, src_char_feat_enable)
     else:
         input_data = []
-        input_data.update(input_src_data)
-        input_data.update(input_trg_data)
+        input_data.extend(input_src_data)
+        input_data.extend(input_trg_data)
         (src_word_embed_data, src_word_vocab_size, src_word_vocab_index, src_word_vocab_inverted_index,
             src_char_vocab_size, src_char_vocab_index, src_char_vocab_inverted_index) = prepare_data(logger, input_src_data,
                 src_word_vocab_file, src_word_vocab_size, src_word_vocab_threshold, src_word_embed_dim, src_word_embed_file,
