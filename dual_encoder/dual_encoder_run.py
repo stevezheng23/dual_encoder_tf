@@ -74,7 +74,7 @@ def extrinsic_eval(logger,
         source = input_data[i]["source"]
         target = input_data[i]["target"]
         label = str(input_data[i]["label"])
-        predict = str(input_predict[i][0])
+        predict = str(input_predict[i])
         
         if source not in sample_dict:
             sample_dict[source] = {
