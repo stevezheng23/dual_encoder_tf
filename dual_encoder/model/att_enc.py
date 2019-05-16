@@ -503,6 +503,7 @@ class AttentionEncoder(BaseModel):
         matching_unit_dim = self.hyperparams.model_matching_unit_dim
         matching_hidden_activation = self.hyperparams.model_matching_hidden_activation
         matching_dropout = self.hyperparams.model_matching_dropout if self.mode == "train" else 0.0
+        matching_projection_dim = self.hyperparams.model_matching_projection_dim
         matching_trainable = self.hyperparams.model_matching_trainable
         
         with tf.variable_scope("matching", reuse=tf.AUTO_REUSE):
@@ -513,9 +514,9 @@ class AttentionEncoder(BaseModel):
             elif matching_score_type == "dense":
                 self.logger.log_print("# build dense matching layer")
                 score_layer = DenseScore(pooling_type=matching_pooling_type, num_layer=matching_num_layer,
-                    unit_dim=matching_unit_dim, activation=matching_hidden_activation, dropout=matching_dropout,
-                    num_gpus=self.num_gpus, default_gpu_id=self.default_gpu_id, regularizer=self.regularizer,
-                    random_seed=self.random_seed, trainable=matching_trainable)
+                    unit_dim=matching_unit_dim, projection_dim=matching_projection_dim, activation=matching_hidden_activation,
+                    dropout=matching_dropout, num_gpus=self.num_gpus, default_gpu_id=self.default_gpu_id,
+                    regularizer=self.regularizer, random_seed=self.random_seed, trainable=matching_trainable)
             else:
                 raise ValueError("unsupported score type {0}".format(matching_score_type))
             
