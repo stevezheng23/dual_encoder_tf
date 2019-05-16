@@ -557,6 +557,55 @@ class AttentionEncoder(BaseModel):
             
         return predict, predict_mask
     
+    def build(self,
+              sess):
+        """build saved model for attention encoder model"""
+        external_index_enable = self.hyperparams.data_external_index_enable
+        
+        if external_index_enable == True:
+            input_src_word = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_src_word_placeholder)
+            input_src_char = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_src_char_placeholder)
+            input_trg_word = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_trg_word_placeholder)
+            input_trg_char = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_trg_char_placeholder)
+            output_predict = tf.saved_model.utils.build_tensor_info(self.output_predict)
+
+            predict_signature = (tf.saved_model.signature_def_utils.build_signature_def(
+                inputs={
+                    'input_src_word': input_src_word,
+                    'input_src_char': input_src_char,
+                    'input_trg_word': input_trg_word,
+                    'input_trg_char': input_trg_char
+                },
+                outputs={
+                    'output_predict': output_predict
+                },
+                method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME))
+        else:
+            input_src = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_src_placeholder)
+            input_trg = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_src_placeholder)
+            output_predict = tf.saved_model.utils.build_tensor_info(self.output_predict)
+
+            predict_signature = (tf.saved_model.signature_def_utils.build_signature_def(
+                inputs={
+                    'input_src': input_src,
+                    'input_trg': input_trg
+                },
+                outputs={
+                    'output_predict': output_predict
+                },
+                method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME))
+        
+        self.model_builder.add_meta_graph_and_variables(
+            sess, [tf.saved_model.tag_constants.SERVING],
+            signature_def_map={
+                tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY:
+                predict_signature
+            },
+            clear_devices=True,
+            main_op=tf.tables_initializer())
+        
+        self.model_builder.save(as_text=False)
+    
     def save(self,
              sess,
              global_step,
