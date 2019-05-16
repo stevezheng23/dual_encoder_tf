@@ -184,9 +184,9 @@ class BaseModel(object):
             masked_label = label * label_mask
             masked_predict = predict * predict_mask
             cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(logits=masked_predict, labels=masked_label)
-            cross_entropy_mask = tf.reduce_max(tf.concat([label_mask, predict_mask], axis=-1), axis=-1, keepdims=True)
+            cross_entropy_mask = label_mask * predict_mask
             masked_cross_entropy = cross_entropy * cross_entropy_mask
-            loss = tf.reduce_mean(tf.reduce_sum(masked_cross_entropy, axis=-2))
+            loss = tf.reduce_mean(tf.reduce_sum(masked_cross_entropy, axis=-1))
         else:
             raise ValueError("unsupported loss type {0}".format(loss_type))
         
@@ -234,12 +234,15 @@ class BaseModel(object):
                             neg_num):
         """generate label for negative sampling"""
         label_list = []
+        label_mask_list = []
         for index in range(batch_size):
             label = [1] + [0] * neg_num
+            label_mask = [1] * (neg_num + 1)
             label_list.append(label)
+            label_mask_list.append(label_mask)
         
         label = tf.reshape(tf.convert_to_tensor(label_list, dtype=tf.float32), shape=[batch_size, neg_num+1])
-        label_mask = label
+        label_mask = tf.reshape(tf.convert_to_tensor(label_mask_list, dtype=tf.float32), shape=[batch_size, neg_num+1])
         
         return label, label_mask
     
@@ -275,9 +278,9 @@ class BaseModel(object):
                 self.train_loss, self.learning_rate, self.global_step, self.batch_size, self.train_summary],
                 feed_dict={self.src_word_embed_placeholder: src_word_embed, self.trg_word_embed_placeholder: trg_word_embed})
         else:
-            _, loss, learning_rate, global_step, batch_size, summary = sess.run([self.update_op,
-                self.train_loss, self.learning_rate, self.global_step, self.batch_size, self.train_summary])
-                
+            (_, loss, learning_rate, global_step, batch_size, summary) = sess.run([self.update_op,
+                    self.train_loss, self.learning_rate, self.global_step, self.batch_size, self.train_summary])
+        
         return TrainResult(loss=loss, learning_rate=learning_rate,
             global_step=global_step, batch_size=batch_size, summary=summary)
     
