@@ -433,6 +433,7 @@ class DenseScore(object):
                  pooling_type,
                  num_layer,
                  unit_dim,
+                 projection_dim,
                  activation,
                  dropout,
                  num_gpus=1,
@@ -445,6 +446,7 @@ class DenseScore(object):
         self.pooling_type = pooling_type
         self.num_layer = num_layer
         self.unit_dim = unit_dim
+        self.projection_dim = projection_dim
         self.activation = activation
         self.dropout = dropout
         self.num_gpus = num_gpus
@@ -461,7 +463,7 @@ class DenseScore(object):
                 1, self.activation, [self.dropout] * self.num_layer, None, True, True, True,
                 self.num_gpus, self.default_gpu_id, self.regularizer, self.random_seed, self.trainable)
             
-            self.project_layer = create_dense_layer("single", 1, 1, 1, None, [0.0], None, False, False, False,
+            self.project_layer = create_dense_layer("single", 1, self.projection_dim, 1, None, [0.0], None, False, False, False,
                 self.num_gpus, self.default_gpu_id, self.regularizer, self.random_seed, self.trainable)
     
     def __call__(self,
@@ -480,8 +482,8 @@ class DenseScore(object):
             input_dense, input_dense_mask = self.dense_layer(input_norm, input_norm_mask)
             input_project, input_project_mask = self.project_layer(input_dense, input_dense_mask)
             
-            output_matching = tf.squeeze(input_project, axis=-1)
-            output_matching_mask = tf.squeeze(input_project_mask, axis=-1)
+            output_matching = tf.squeeze(input_project, axis=-1) if self.projection_dim == 1 else input_project
+            output_matching_mask = tf.squeeze(input_project_mask, axis=-1) if self.projection_dim == 1 else input_project_mask
         
         return output_matching, output_matching_mask
 
