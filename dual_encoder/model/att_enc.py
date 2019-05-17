@@ -115,6 +115,15 @@ class AttentionEncoder(BaseModel):
                 """create train summary"""
                 self.train_summary = self._get_train_summary()
             
+            if self.mode == "online":
+                """create model builder"""
+                if not tf.gfile.Exists(self.hyperparams.train_model_output_dir):
+                    tf.gfile.MakeDirs(self.hyperparams.train_model_output_dir)
+                
+                model_version = "{0}.{1}".format(self.hyperparams.train_model_version, time.time())
+                self.model_dir = os.path.join(self.hyperparams.train_model_output_dir, model_version)
+                self.model_builder = tf.saved_model.builder.SavedModelBuilder(self.model_dir)
+            
             """create checkpoint saver"""
             if not tf.gfile.Exists(self.hyperparams.train_ckpt_output_dir):
                 tf.gfile.MakeDirs(self.hyperparams.train_ckpt_output_dir)
