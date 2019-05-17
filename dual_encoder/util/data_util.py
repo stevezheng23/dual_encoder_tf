@@ -17,8 +17,104 @@ __all__ = ["DataPipeline", "create_dynamic_pipeline", "create_data_pipeline",
 class DataPipeline(collections.namedtuple("DataPipeline",
     ("initializer", "input_src_word", "input_src_char", "input_trg_word", "input_trg_char", "input_label",
      "input_src_word_mask", "input_src_char_mask", "input_trg_word_mask", "input_trg_char_mask", "input_label_mask",
-     "batch_size", "data_size_placeholder", "input_src_placeholder","input_trg_placeholder", "input_label_placeholder"))):
+     "batch_size", "data_size_placeholder", "input_src_placeholder", "input_src_word_placeholder", "input_src_char_placeholder",
+     "input_trg_placeholder", "input_trg_word_placeholder", "input_trg_char_placeholder", "input_label_placeholder"))):
     pass
+
+def create_online_pipeline(external_index_enable,
+                           src_word_max_length,
+                           src_word_vocab_index,
+                           src_word_pad,
+                           src_word_feat_enable,
+                           src_char_max_length,
+                           src_char_vocab_index,
+                           src_char_pad,
+                           src_char_feat_enable,
+                           trg_word_max_length,
+                           trg_word_vocab_index,
+                           trg_word_pad,
+                           trg_word_feat_enable,
+                           trg_char_max_length,
+                           trg_char_vocab_index,
+                           trg_char_pad,
+                           trg_char_feat_enable):
+    """create online data pipeline for dual encoder"""
+    input_src_placeholder = None
+    input_src_word_placeholder = None
+    input_src_char_placeholder = None
+    input_trg_placeholder = None
+    input_trg_word_placeholder = None
+    input_trg_char_placeholder = None
+    input_src_word = None
+    input_src_word_mask = None
+    input_src_char = None
+    input_src_char_mask = None
+    input_trg_word = None
+    input_trg_word_mask = None
+    input_trg_char = None
+    input_trg_char_mask = None
+    
+    if external_index_enable == True:
+        input_src_word_placeholder = tf.placeholder(shape=[None, None], dtype=tf.int32)
+        input_src_char_placeholder = tf.placeholder(shape=[None, None, None], dtype=tf.int32)
+        input_trg_word_placeholder = tf.placeholder(shape=[None, None], dtype=tf.int32)
+        input_trg_char_placeholder = tf.placeholder(shape=[None, None, None], dtype=tf.int32)
+        
+        if src_word_feat_enable == True:
+            src_word_pad_id = tf.cast(src_word_vocab_index.lookup(tf.constant(src_word_pad)), dtype=tf.int32)
+            input_src_word = tf.expand_dims(input_src_word_placeholder[:,:src_word_max_length], axis=-1)
+            input_src_word_mask = tf.cast(tf.not_equal(input_src_word, src_word_pad_id), dtype=tf.float32)
+        
+        if src_char_feat_enable == True:
+            src_char_pad_id = tf.cast(src_char_vocab_index.lookup(tf.constant(src_char_pad)), dtype=tf.int32)
+            input_src_char = input_src_char_placeholder[:,:src_word_max_length,:src_char_max_length]
+            input_src_char_mask = tf.cast(tf.not_equal(input_src_char, src_char_pad_id), dtype=tf.float32)
+        
+        if trg_word_feat_enable == True:
+            trg_word_pad_id = tf.cast(trg_word_vocab_index.lookup(tf.constant(trg_word_pad)), dtype=tf.int32)
+            input_trg_word = tf.expand_dims(input_trg_word_placeholder[:,:trg_word_max_length], axis=-1)
+            input_trg_word_mask = tf.cast(tf.not_equal(input_trg_word, trg_word_pad_id), dtype=tf.float32)
+        
+        if trg_char_feat_enable == True:
+            trg_char_pad_id = tf.cast(trg_char_vocab_index.lookup(tf.constant(trg_char_pad)), dtype=tf.int32)
+            input_trg_char = input_trg_char_placeholder[:,:trg_word_max_length,:trg_char_max_length]
+            input_trg_char_mask = tf.cast(tf.not_equal(input_trg_char, trg_char_pad_id), dtype=tf.float32)
+    else:
+        input_src_placeholder = tf.placeholder(shape=[None], dtype=tf.int32)
+        input_trg_placeholder = tf.placeholder(shape=[None], dtype=tf.int32)
+        
+        if src_word_feat_enable == True:
+            src_word_pad_id = tf.cast(src_word_vocab_index.lookup(tf.constant(src_word_pad)), dtype=tf.int32)
+            input_src_word = tf.map_fn(lambda sent: generate_word_feat(sent,
+                src_word_vocab_index, src_word_max_length, src_word_pad), input_src_placeholder, dtype=tf.int32)
+            input_src_word_mask = tf.cast(tf.not_equal(input_src_word, src_word_pad_id), dtype=tf.float32)
+        
+        if src_char_feat_enable == True:
+            src_char_pad_id = tf.cast(src_char_vocab_index.lookup(tf.constant(src_char_pad)), dtype=tf.int32)
+            input_src_char = tf.map_fn(lambda sent: generate_char_feat(sent,
+                src_word_max_length, src_char_vocab_index, src_char_max_length, src_char_pad), input_src_placeholder, dtype=tf.int32)
+            input_src_char_mask = tf.cast(tf.not_equal(input_src_char, src_char_pad_id), dtype=tf.float32)
+        
+        if trg_word_feat_enable == True:
+            trg_word_pad_id = tf.cast(trg_word_vocab_index.lookup(tf.constant(trg_word_pad)), dtype=tf.int32)
+            input_trg_word = tf.map_fn(lambda sent: generate_word_feat(sent,
+                trg_word_vocab_index, trg_word_max_length, trg_word_pad), input_trg_placeholder, dtype=tf.int32)
+            input_trg_word_mask = tf.cast(tf.not_equal(input_trg_word, trg_word_pad_id), dtype=tf.float32)
+        
+        if trg_char_feat_enable == True:
+            trg_char_pad_id = tf.cast(trg_char_vocab_index.lookup(tf.constant(trg_char_pad)), dtype=tf.int32)
+            input_trg_char = tf.map_fn(lambda sent: generate_char_feat(sent,
+                trg_word_max_length, trg_char_vocab_index, trg_char_max_length, trg_char_pad), input_trg_placeholder, dtype=tf.int32)
+            input_trg_char_mask = tf.cast(tf.not_equal(input_trg_char, trg_char_pad_id), dtype=tf.float32)
+    
+    return DataPipeline(initializer=None,
+        input_src_word=input_src_word, input_src_char=input_src_char,
+        input_trg_word=input_trg_word, input_trg_char=input_trg_char, input_label=input_label,
+        input_src_word_mask=input_src_word_mask, input_src_char_mask=input_src_char_mask,
+        input_trg_word_mask=input_trg_word_mask, input_trg_char_mask=input_trg_char_mask,
+        input_label_mask=input_label_mask, batch_size=None, data_size_placeholder=None,
+        input_src_placeholder=None, input_src_word_placeholder=None, input_src_char_placeholder=None,
+        input_trg_placeholder=None, input_trg_word_placeholder=None, input_trg_char_placeholder=None, input_label_placeholder=None)
 
 def create_dynamic_pipeline(input_src_word_dataset,
                             input_src_char_dataset,
@@ -122,9 +218,10 @@ def create_dynamic_pipeline(input_src_word_dataset,
         input_trg_word=input_trg_word, input_trg_char=input_trg_char, input_label=input_label,
         input_src_word_mask=input_src_word_mask, input_src_char_mask=input_src_char_mask,
         input_trg_word_mask=input_trg_word_mask, input_trg_char_mask=input_trg_char_mask,
-        input_label_mask=input_label_mask, batch_size=batch_size,
-        data_size_placeholder=data_size_placeholder, input_src_placeholder=input_src_placeholder,
-        input_trg_placeholder=input_trg_placeholder, input_label_placeholder=input_label_placeholder)
+        input_label_mask=input_label_mask, batch_size=batch_size, data_size_placeholder=data_size_placeholder,
+        input_src_placeholder=input_src_placeholder, input_src_word_placeholder=None, input_src_char_placeholder=None,
+        input_trg_placeholder=input_trg_placeholder, input_trg_word_placeholder=None, input_trg_char_placeholder=None,
+        input_label_placeholder=input_label_placeholder)
 
 def create_data_pipeline(input_src_word_dataset,
                          input_src_char_dataset,
@@ -227,7 +324,9 @@ def create_data_pipeline(input_src_word_dataset,
         input_trg_word_mask=input_trg_word_mask, input_trg_char_mask=input_trg_char_mask,
         input_label_mask=input_label_mask, batch_size=batch_size,
         data_size_placeholder=None, input_src_placeholder=None,
-        input_trg_placeholder=None, input_label_placeholder=None)
+        input_src_word_placeholder=None, input_src_char_placeholder=None,
+        input_trg_placeholder=None, input_trg_word_placeholder=None,
+        input_trg_char_placeholder=None, input_label_placeholder=None)
     
 def create_text_dataset(input_data_set,
                         word_vocab_index,
