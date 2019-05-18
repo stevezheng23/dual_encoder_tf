@@ -202,7 +202,7 @@ class ConvolutionEncoder(BaseModel):
             if src_word_feat_enable == True:
                 self.logger.log_print("# build word-level source representation layer")
                 src_word_feat_layer = WordFeat(vocab_size=src_word_vocab_size, embed_dim=src_word_embed_dim,
-                    dropout=src_word_dropout, pretrained=src_word_embed_pretrained, embedding=self.src_word_embed,
+                    dropout=src_word_dropout, pretrained=src_word_embed_pretrained, embed_data=self.src_word_embed,
                     num_gpus=self.num_gpus, default_gpu_id=self.default_gpu_id, regularizer=self.regularizer, 
                     random_seed=self.random_seed, trainable=src_word_feat_trainable)
                 
@@ -212,10 +212,8 @@ class ConvolutionEncoder(BaseModel):
                 input_src_feat_mask_list.append(input_src_word_feat_mask)
                 
                 src_word_unit_dim = src_word_embed_dim
-                self.src_word_embedding_placeholder = src_word_feat_layer.get_embedding_placeholder()
             else:
                 src_word_unit_dim = 0
-                self.src_word_embedding_placeholder = None
             
             if src_char_feat_enable == True:
                 self.logger.log_print("# build char-level source representation layer")
@@ -251,7 +249,7 @@ class ConvolutionEncoder(BaseModel):
                     trg_word_feat_layer = src_word_feat_layer
                 else:
                     trg_word_feat_layer = WordFeat(vocab_size=trg_word_vocab_size, embed_dim=trg_word_embed_dim,
-                        dropout=trg_word_dropout, pretrained=trg_word_embed_pretrained, embedding=self.trg_word_embed,
+                        dropout=trg_word_dropout, pretrained=trg_word_embed_pretrained, embed_data=self.trg_word_embed,
                         num_gpus=self.num_gpus, default_gpu_id=self.default_gpu_id, regularizer=self.regularizer, 
                         random_seed=self.random_seed, trainable=trg_word_feat_trainable)
                 
@@ -261,10 +259,8 @@ class ConvolutionEncoder(BaseModel):
                 input_trg_feat_mask_list.append(input_trg_word_feat_mask)
                 
                 trg_word_unit_dim = trg_word_embed_dim
-                self.trg_word_embedding_placeholder = trg_word_feat_layer.get_embedding_placeholder()
             else:
                 trg_word_unit_dim = 0
-                self.trg_word_embedding_placeholder = None
             
             if trg_char_feat_enable == True:
                 self.logger.log_print("# build char-level target representation layer")
