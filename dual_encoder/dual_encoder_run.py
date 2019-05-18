@@ -64,7 +64,7 @@ def extrinsic_eval(logger,
     input_predict = []
     while True:
         try:
-            infer_result = model.model.infer(sess, model.src_word_embed, model.trg_word_embed)
+            infer_result = model.model.infer(sess)
             input_predict.extend(infer_result.predict)
         except  tf.errors.OutOfRangeError:
             break
@@ -153,7 +153,7 @@ def train(logger,
         while True:
             try:
                 start_time = time.time()
-                train_result = train_model.model.train(train_sess, train_model.src_word_embed, train_model.trg_word_embed)
+                train_result = train_model.model.train(train_sess)
                 end_time = time.time()
                 
                 global_step = train_result.global_step
@@ -220,6 +220,26 @@ def evaluate(logger,
     infer_summary_writer.close_writer()
     logger.log_print("##### finish evaluation #####")
 
+def export(logger,
+           hyperparams,
+           enable_debug=False):   
+    config_proto = get_config_proto(hyperparams.device_log_device_placement,
+        hyperparams.device_allow_soft_placement, hyperparams.device_allow_growth,
+        hyperparams.device_per_process_gpu_memory_fraction)
+    
+    logger.log_print("##### create online model #####")
+    online_model = create_online_model(logger, hyperparams)
+    online_sess = tf.Session(config=config_proto)
+    if enable_debug == True:
+        online_sess = tf_debug.LocalCLIDebugWrapperSession(online_sess)
+    
+    logger.log_print("##### start exporting #####")
+    ckpt_file = online_model.model.get_latest_ckpt("epoch")
+    online_sess.run([tf.global_variables_initializer(), tf.tables_initializer()])
+    online_model.model.restore(online_sess, ckpt_file, "epoch")
+    online_model.model.build(online_sess)
+    logger.log_print("##### finish exporting #####")
+
 def main(args):
     hyperparams = load_hyperparams(args.config)
     logger = DebugLogger(hyperparams.data_log_output_dir)
@@ -237,6 +257,10 @@ def main(args):
         evaluate(logger, hyperparams, enable_debug=False)
     elif (args.mode == 'eval_debug'):
         evaluate(logger, hyperparams, enable_debug=True)
+    elif (args.mode == 'export'):
+        export(logger, hyperparams, enable_debug=False)
+    elif (args.mode == 'export_debug'):
+        export(logger, hyperparams, enable_debug=True)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
