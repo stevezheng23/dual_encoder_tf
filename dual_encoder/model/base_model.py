@@ -44,8 +44,6 @@ class BaseModel(object):
         
         self.src_word_embed = external_data["src_word_embed"] if external_data is not None and "src_word_embed" in external_data else None
         self.trg_word_embed = external_data["trg_word_embed"] if external_data is not None and "trg_word_embed" in external_data else None
-        self.src_word_embed_placeholder = None
-        self.trg_word_embed_placeholder = None
         
         self.batch_size = tf.size(tf.reduce_max(self.data_pipeline.input_label_mask, axis=-2))
         self.max_batch_size = self.data_pipeline.batch_size
@@ -264,43 +262,19 @@ class BaseModel(object):
         return indice_list
     
     def train(self,
-              sess,
-              src_word_embed=None,
-              trg_word_embed=None):
+              sess):
         """train model"""
-        feed_word_embed = (self.hyperparams.model_representation_src_word_embed_pretrained and
-            self.hyperparams.model_representation_trg_word_embed_pretrained and
-            src_word_embed is not None and self.src_word_embed_placeholder is not None and
-            trg_word_embed is not None and self.trg_word_embed_placeholder is not None)
-        
-        if feed_word_embed == True:
-            (_, loss, learning_rate, global_step, batch_size, summary) = sess.run([self.update_op,
-                self.train_loss, self.learning_rate, self.global_step, self.batch_size, self.train_summary],
-                feed_dict={self.src_word_embed_placeholder: src_word_embed, self.trg_word_embed_placeholder: trg_word_embed})
-        else:
-            (_, loss, learning_rate, global_step, batch_size, summary) = sess.run([self.update_op,
-                    self.train_loss, self.learning_rate, self.global_step, self.batch_size, self.train_summary])
+        (_, loss, learning_rate, global_step, batch_size, summary) = sess.run([self.update_op,
+                self.train_loss, self.learning_rate, self.global_step, self.batch_size, self.train_summary])
         
         return TrainResult(loss=loss, learning_rate=learning_rate,
             global_step=global_step, batch_size=batch_size, summary=summary)
     
     def infer(self,
-              sess,
-              src_word_embed=None,
-              trg_word_embed=None):
+              sess):
         """infer model"""
-        feed_word_embed = (self.hyperparams.model_representation_src_word_embed_pretrained and
-            self.hyperparams.model_representation_trg_word_embed_pretrained and
-            src_word_embed is not None and self.src_word_embed_placeholder is not None and
-            trg_word_embed is not None and self.trg_word_embed_placeholder is not None)
-        
-        if feed_word_embed == True:
-            (infer_predict, batch_size,
-                summary) = sess.run([self.infer_predict, self.batch_size, self.infer_summary],
-                    feed_dict={self.src_word_embed_placeholder: src_word_embed, self.trg_word_embed_placeholder: trg_word_embed})
-        else:
-            (infer_predict, batch_size,
-                summary) = sess.run([self.infer_predict, self.batch_size, self.infer_summary])
+        (infer_predict, batch_size,
+            summary) = sess.run([self.infer_predict, self.batch_size, self.infer_summary])
         
         return InferResult(predict=infer_predict, batch_size=batch_size, summary=summary)
         
@@ -494,7 +468,7 @@ class WordFeat(object):
                  embed_dim,
                  dropout,
                  pretrained,
-                 embedding=None,
+                 embed_data=None,
                  num_gpus=1,
                  default_gpu_id=0,
                  regularizer=None,
@@ -506,7 +480,7 @@ class WordFeat(object):
         self.embed_dim = embed_dim
         self.dropout = dropout
         self.pretrained = pretrained
-        self.embedding = embedding
+        self.embed_data = embed_data
         self.num_gpus = num_gpus
         self.default_gpu_id = default_gpu_id
         self.regularizer = regularizer
@@ -515,8 +489,8 @@ class WordFeat(object):
         self.scope = scope
         
         with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
-            self.embedding_layer = create_embedding_layer(self.vocab_size, self.embed_dim, self.pretrained, self.embedding,
-                self.num_gpus, self.default_gpu_id, None, self.random_seed, False, self.trainable)
+            self.embedding_layer = create_embedding_layer(self.vocab_size, self.embed_dim, self.embed_data, self.pretrained,
+                self.num_gpus, self.default_gpu_id, None, self.random_seed, self.trainable)
             
             self.dropout_layer = create_dropout_layer(self.dropout, self.num_gpus, self.default_gpu_id, self.random_seed)
     
@@ -535,10 +509,6 @@ class WordFeat(object):
             input_word_feat_mask = input_word_dropout_mask
         
         return input_word_feat, input_word_feat_mask
-    
-    def get_embedding_placeholder(self):
-        """get word-level embedding placeholder"""
-        return self.embedding_layer.get_embedding_placeholder()
 
 class CharFeat(object):
     """char-level featurization layer"""
@@ -572,8 +542,8 @@ class CharFeat(object):
         self.scope = scope
         
         with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
-            self.embedding_layer = create_embedding_layer(self.vocab_size, self.embed_dim, False, None,
-                self.num_gpus, self.default_gpu_id, None, self.random_seed, False, self.trainable)
+            self.embedding_layer = create_embedding_layer(self.vocab_size, self.embed_dim, None, False,
+                self.num_gpus, self.default_gpu_id, None, self.random_seed, self.trainable)
             
             self.conv_layer = create_convolution_layer("stacked_multi_1d", 1, self.embed_dim, self.unit_dim,
                 self.window_size, 1, "SAME", self.activation, [0.0], None, False, False, True,
