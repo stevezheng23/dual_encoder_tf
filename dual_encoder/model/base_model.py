@@ -45,7 +45,7 @@ class BaseModel(object):
         self.src_word_embed = external_data["src_word_embed"] if external_data is not None and "src_word_embed" in external_data else None
         self.trg_word_embed = external_data["trg_word_embed"] if external_data is not None and "trg_word_embed" in external_data else None
         
-        self.batch_size = tf.size(tf.reduce_max(self.data_pipeline.input_label_mask, axis=-2))
+        self.batch_size = tf.size(tf.reduce_max(self.data_pipeline.input_src_word_mask, axis=[-1,-2]))
         self.max_batch_size = self.data_pipeline.batch_size
         self.neg_num = self.hyperparams.train_neg_num
         self.enable_negative_sampling = self.hyperparams.train_loss_type == "neg_sampling" and self.mode == "train"

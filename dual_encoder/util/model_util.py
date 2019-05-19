@@ -232,11 +232,6 @@ def create_online_model(logger,
             hyperparams.data_src_char_vocab_file, hyperparams.data_src_char_vocab_size, hyperparams.data_src_char_vocab_threshold,
             hyperparams.data_src_char_unk, hyperparams.data_src_char_pad, hyperparams.model_representation_src_char_feat_enable)
     
-    external_data = {}
-    if src_word_embed_data is not None and trg_word_embed_data is not None:
-        external_data["src_word_embed"] = src_word_embed_data
-        external_data["trg_word_embed"] = trg_word_embed_data
-    
     logger.log_print("# prepare online target data")
     if hyperparams.data_share_vocab == False:
         (trg_word_embed_data, trg_word_vocab_size, trg_word_vocab_index, trg_word_vocab_inverted_index,
@@ -255,6 +250,11 @@ def create_online_model(logger,
         trg_char_vocab_size = src_char_vocab_size
         trg_char_vocab_index = src_char_vocab_index
         trg_char_vocab_inverted_index = src_char_vocab_inverted_index
+    
+    external_data = {}
+    if src_word_embed_data is not None and trg_word_embed_data is not None:
+        external_data["src_word_embed"] = src_word_embed_data
+        external_data["trg_word_embed"] = trg_word_embed_data
     
     logger.log_print("# create online data pipeline")
     data_pipeline = create_online_pipeline(hyperparams.data_external_index_enable,

@@ -8,7 +8,7 @@ import tensorflow as tf
 
 from util.default_util import *
 
-__all__ = ["DataPipeline", "create_dynamic_pipeline", "create_data_pipeline",
+__all__ = ["DataPipeline", "create_online_pipeline", "create_dynamic_pipeline", "create_data_pipeline",
            "create_text_dataset", "create_label_dataset", "generate_word_feat", "generate_char_feat", "generate_num_feat",
            "create_embedding_file", "load_embedding_file", "convert_embedding",
            "create_vocab_file", "load_vocab_file", "process_vocab_table", "create_word_vocab", "create_char_vocab",
@@ -30,12 +30,12 @@ def create_online_pipeline(external_index_enable,
                            src_char_max_length,
                            src_char_pad,
                            src_char_feat_enable,
-                           trg_word_max_length,
                            trg_word_vocab_index,
+                           trg_word_max_length,
                            trg_word_pad,
                            trg_word_feat_enable,
-                           trg_char_max_length,
                            trg_char_vocab_index,
+                           trg_char_max_length,
                            trg_char_pad,
                            trg_char_feat_enable):
     """create online data pipeline for dual encoder"""
@@ -80,8 +80,8 @@ def create_online_pipeline(external_index_enable,
             input_trg_char = input_trg_char_placeholder[:,:trg_word_max_length,:trg_char_max_length]
             input_trg_char_mask = tf.cast(tf.not_equal(input_trg_char, trg_char_pad_id), dtype=tf.float32)
     else:
-        input_src_placeholder = tf.placeholder(shape=[None], dtype=tf.int32)
-        input_trg_placeholder = tf.placeholder(shape=[None], dtype=tf.int32)
+        input_src_placeholder = tf.placeholder(shape=[None], dtype=tf.string)
+        input_trg_placeholder = tf.placeholder(shape=[None], dtype=tf.string)
         
         if src_word_feat_enable == True:
             src_word_pad_id = tf.cast(src_word_vocab_index.lookup(tf.constant(src_word_pad)), dtype=tf.int32)
@@ -109,12 +109,13 @@ def create_online_pipeline(external_index_enable,
     
     return DataPipeline(initializer=None,
         input_src_word=input_src_word, input_src_char=input_src_char,
-        input_trg_word=input_trg_word, input_trg_char=input_trg_char, input_label=input_label,
+        input_trg_word=input_trg_word, input_trg_char=input_trg_char, input_label=None,
         input_src_word_mask=input_src_word_mask, input_src_char_mask=input_src_char_mask,
         input_trg_word_mask=input_trg_word_mask, input_trg_char_mask=input_trg_char_mask,
-        input_label_mask=input_label_mask, batch_size=None, data_size_placeholder=None,
-        input_src_placeholder=None, input_src_word_placeholder=None, input_src_char_placeholder=None,
-        input_trg_placeholder=None, input_trg_word_placeholder=None, input_trg_char_placeholder=None, input_label_placeholder=None)
+        input_label_mask=None, batch_size=None, data_size_placeholder=None, input_src_placeholder=input_src_placeholder,
+        input_src_word_placeholder=input_src_word_placeholder, input_src_char_placeholder=input_src_char_placeholder,
+        input_trg_placeholder=input_trg_placeholder, input_trg_word_placeholder=input_trg_word_placeholder,
+        input_trg_char_placeholder=input_trg_char_placeholder, input_label_placeholder=None)
 
 def create_dynamic_pipeline(input_src_word_dataset,
                             input_src_char_dataset,
