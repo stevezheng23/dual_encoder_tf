@@ -56,6 +56,8 @@ class ConvolutionEncoder(BaseModel):
                 input_src_char_mask, input_trg_word, input_trg_word_mask, input_trg_char, input_trg_char_mask)
             self.predict = predict
             self.predict_mask = predict_mask
+            self.output_predict = tf.nn.sigmoid(self.predict)
+            self.output_predict_mask = self.predict_mask
             
             self.variable_list = tf.global_variables()
             self.variable_lookup = {v.op.name: v for v in self.variable_list}
@@ -64,14 +66,6 @@ class ConvolutionEncoder(BaseModel):
                 self.ema = self._get_exponential_moving_average(self.global_step)
                 self.variable_list = tf.trainable_variables()
                 self.variable_lookup = {self.ema.average_name(v): v for v in self.variable_list}
-            
-            if self.mode == "infer":
-                """get infer answer"""
-                self.infer_predict = tf.nn.sigmoid(self.predict)
-                self.infer_predict_mask = self.predict_mask
-                
-                """create infer summary"""
-                self.infer_summary = self._get_infer_summary()
             
             if self.mode == "train":
                 """compute optimization loss"""
@@ -571,7 +565,7 @@ class ConvolutionEncoder(BaseModel):
             input_src_char = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_src_char_placeholder)
             input_trg_word = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_trg_word_placeholder)
             input_trg_char = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_trg_char_placeholder)
-            output_predict = tf.saved_model.utils.build_tensor_info(self.predict)
+            output_predict = tf.saved_model.utils.build_tensor_info(self.output_predict)
 
             predict_signature = (tf.saved_model.signature_def_utils.build_signature_def(
                 inputs={
@@ -587,7 +581,7 @@ class ConvolutionEncoder(BaseModel):
         else:
             input_src = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_src_placeholder)
             input_trg = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_trg_placeholder)
-            output_predict = tf.saved_model.utils.build_tensor_info(self.predict)
+            output_predict = tf.saved_model.utils.build_tensor_info(self.output_predict)
 
             predict_signature = (tf.saved_model.signature_def_utils.build_signature_def(
                 inputs={
