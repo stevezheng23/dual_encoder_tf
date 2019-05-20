@@ -15,8 +15,7 @@ class TrainResult(collections.namedtuple("TrainResult",
     ("loss", "learning_rate", "global_step", "batch_size", "summary"))):
     pass
 
-class InferResult(collections.namedtuple("InferResult",
-    ("predict", "batch_size", "summary"))):
+class InferResult(collections.namedtuple("InferResult", ("predict", "batch_size"))):
     pass
 
 class BaseModel(object):
@@ -264,7 +263,7 @@ class BaseModel(object):
     def train(self,
               sess):
         """train model"""
-        (_, loss, learning_rate, global_step, batch_size, summary) = sess.run([self.update_op,
+        _, loss, learning_rate, global_step, batch_size, summary = sess.run([self.update_op,
                 self.train_loss, self.learning_rate, self.global_step, self.batch_size, self.train_summary])
         
         return TrainResult(loss=loss, learning_rate=learning_rate,
@@ -273,19 +272,14 @@ class BaseModel(object):
     def infer(self,
               sess):
         """infer model"""
-        (infer_predict, batch_size,
-            summary) = sess.run([self.infer_predict, self.batch_size, self.infer_summary])
+        output_predict, batch_size = sess.run([self.output_predict, self.batch_size])
         
-        return InferResult(predict=infer_predict, batch_size=batch_size, summary=summary)
+        return InferResult(predict=output_predict, batch_size=batch_size)
         
     def _get_train_summary(self):
         """get train summary"""
         return tf.summary.merge([tf.summary.scalar("learning_rate", self.learning_rate),
             tf.summary.scalar("train_loss", self.train_loss), tf.summary.scalar("gradient_norm", self.gradient_norm)])
-    
-    def _get_infer_summary(self):
-        """get infer summary"""
-        return tf.no_op()
 
 class FusionModule(object):
     """fusion-module layer"""
