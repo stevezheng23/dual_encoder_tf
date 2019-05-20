@@ -47,7 +47,7 @@
     "train_eval_detail_type": "full",
     "train_num_epoch": 3,
     "train_model_version": "0.0.1",
-    "train_model_output_dir": "output/att_enc/checkpoint",
+    "train_model_output_dir": "output/att_enc/model",
     "train_ckpt_output_dir": "output/att_enc/checkpoint",
     "train_summary_output_dir": "output/att_enc/summary",
     "train_step_per_stat": 10,
