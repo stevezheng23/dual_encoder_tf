@@ -2,6 +2,7 @@ import collections
 import functools
 import os.path
 import operator
+import time
 
 import numpy as np
 import tensorflow as tf
@@ -56,11 +57,13 @@ class ConvolutionEncoder(BaseModel):
             self.predict = predict
             self.predict_mask = predict_mask
             
+            self.variable_list = tf.global_variables()
+            self.variable_lookup = {v.op.name: v for v in self.variable_list}
+            
             if self.hyperparams.train_ema_enable == True:
                 self.ema = self._get_exponential_moving_average(self.global_step)
-                self.variable_list = self.ema.variables_to_restore(tf.trainable_variables())
-            else:
-                self.variable_list = tf.global_variables()
+                self.variable_list = tf.trainable_variables()
+                self.variable_lookup = {self.ema.average_name(v): v for v in self.variable_list}
             
             if self.mode == "infer":
                 """get infer answer"""
@@ -108,12 +111,22 @@ class ConvolutionEncoder(BaseModel):
                 
                 if self.hyperparams.train_ema_enable == True:
                     with tf.control_dependencies([self.opt_op]):
-                        self.update_op = self.ema.apply(tf.trainable_variables())
+                        self.update_op = self.ema.apply(self.variable_list)
+                        self.variable_lookup = {self.ema.average_name(v): self.ema.average(v) for v in self.variable_list}
                 else:
                     self.update_op = self.opt_op
                 
                 """create train summary"""
                 self.train_summary = self._get_train_summary()
+            
+            if self.mode == "online":
+                """create model builder"""
+                if not tf.gfile.Exists(self.hyperparams.train_model_output_dir):
+                    tf.gfile.MakeDirs(self.hyperparams.train_model_output_dir)
+                
+                model_version = "{0}.{1}".format(self.hyperparams.train_model_version, time.time())
+                self.model_dir = os.path.join(self.hyperparams.train_model_output_dir, model_version)
+                self.model_builder = tf.saved_model.builder.SavedModelBuilder(self.model_dir)
             
             """create checkpoint saver"""
             if not tf.gfile.Exists(self.hyperparams.train_ckpt_output_dir):
@@ -131,13 +144,8 @@ class ConvolutionEncoder(BaseModel):
             self.ckpt_debug_name = os.path.join(self.ckpt_debug_dir, "model_debug_ckpt")
             self.ckpt_epoch_name = os.path.join(self.ckpt_epoch_dir, "model_epoch_ckpt")
             
-            if self.mode == "infer":
-                self.ckpt_debug_saver = tf.train.Saver(self.variable_list)
-                self.ckpt_epoch_saver = tf.train.Saver(self.variable_list, max_to_keep=self.hyperparams.train_num_epoch)  
-            
-            if self.mode == "train":
-                self.ckpt_debug_saver = tf.train.Saver()
-                self.ckpt_epoch_saver = tf.train.Saver(max_to_keep=self.hyperparams.train_num_epoch)   
+            self.ckpt_debug_saver = tf.train.Saver(self.variable_lookup)
+            self.ckpt_epoch_saver = tf.train.Saver(self.variable_lookup, max_to_keep=self.hyperparams.train_num_epoch)
     
     def _build_representation_layer(self,
                                     input_src_word,
@@ -552,6 +560,55 @@ class ConvolutionEncoder(BaseModel):
             predict_mask = input_matching_mask
             
         return predict, predict_mask
+    
+    def build(self,
+              sess):
+        """build saved model for convolution encoder model"""
+        external_index_enable = self.hyperparams.data_external_index_enable
+        
+        if external_index_enable == True:
+            input_src_word = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_src_word_placeholder)
+            input_src_char = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_src_char_placeholder)
+            input_trg_word = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_trg_word_placeholder)
+            input_trg_char = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_trg_char_placeholder)
+            output_predict = tf.saved_model.utils.build_tensor_info(self.predict)
+
+            predict_signature = (tf.saved_model.signature_def_utils.build_signature_def(
+                inputs={
+                    'input_src_word': input_src_word,
+                    'input_src_char': input_src_char,
+                    'input_trg_word': input_trg_word,
+                    'input_trg_char': input_trg_char
+                },
+                outputs={
+                    'output_predict': output_predict
+                },
+                method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME))
+        else:
+            input_src = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_src_placeholder)
+            input_trg = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_trg_placeholder)
+            output_predict = tf.saved_model.utils.build_tensor_info(self.predict)
+
+            predict_signature = (tf.saved_model.signature_def_utils.build_signature_def(
+                inputs={
+                    'input_src': input_src,
+                    'input_trg': input_trg
+                },
+                outputs={
+                    'output_predict': output_predict
+                },
+                method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME))
+        
+        self.model_builder.add_meta_graph_and_variables(
+            sess, [tf.saved_model.tag_constants.SERVING],
+            signature_def_map={
+                tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY:
+                predict_signature
+            },
+            clear_devices=True,
+            main_op=tf.tables_initializer())
+        
+        self.model_builder.save(as_text=False)
     
     def save(self,
              sess,
