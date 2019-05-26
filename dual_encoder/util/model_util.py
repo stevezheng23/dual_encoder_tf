@@ -8,8 +8,8 @@ from model.seq_enc import *
 from model.att_enc import *
 from util.data_util import *
 
-__all__ = ["TrainModel", "InferModel", "SimilarityModel",
-           "create_train_model", "create_infer_model", "create_similarity_model",
+__all__ = ["TrainModel", "InferModel", "SimilarityModel", "EmbeddingModel",
+           "create_train_model", "create_infer_model", "create_similarity_model", "create_embedding_model",
            "init_model", "load_model"]
 
 class TrainModel(collections.namedtuple("TrainModel",
@@ -23,6 +23,9 @@ class InferModel(collections.namedtuple("InferModel",
     pass
 
 class SimilarityModel(collections.namedtuple("SimilarityModel", ("model", "data_pipeline"))):
+    pass
+
+class EmbeddingModel(collections.namedtuple("EmbeddingModel", ("model", "data_pipeline"))):
     pass
 
 def create_train_model(logger,
@@ -270,6 +273,58 @@ def create_similarity_model(logger,
         external_data=external_data, mode="similarity", scope=hyperparams.model_scope)
     
     return SimilarityModel(model=model, data_pipeline=data_pipeline)
+
+def create_embedding_model(logger,
+                           hyperparams):
+    logger.log_print("# prepare embedding data")
+    logger.log_print("# prepare embedding source data")
+    (src_word_embed_data, src_word_vocab_size, src_word_vocab_index, src_word_vocab_inverted_index,
+        src_char_vocab_size, src_char_vocab_index, src_char_vocab_inverted_index) = prepare_data(logger, None,
+            hyperparams.data_src_word_vocab_file, hyperparams.data_src_word_vocab_size, hyperparams.data_src_word_vocab_threshold,
+            hyperparams.model_representation_src_word_embed_dim, hyperparams.data_src_embed_file,
+            hyperparams.data_src_embed_full_file, hyperparams.model_representation_src_word_embed_pretrained,
+            hyperparams.data_src_word_unk, hyperparams.data_src_word_pad, hyperparams.model_representation_src_word_feat_enable,
+            hyperparams.data_src_char_vocab_file, hyperparams.data_src_char_vocab_size, hyperparams.data_src_char_vocab_threshold,
+            hyperparams.data_src_char_unk, hyperparams.data_src_char_pad, hyperparams.model_representation_src_char_feat_enable)
+    
+    logger.log_print("# prepare embedding target data")
+    if hyperparams.data_share_vocab == False:
+        (trg_word_embed_data, trg_word_vocab_size, trg_word_vocab_index, trg_word_vocab_inverted_index,
+            trg_char_vocab_size, trg_char_vocab_index, trg_char_vocab_inverted_index) = prepare_data(logger, None,
+                hyperparams.data_trg_word_vocab_file, hyperparams.data_trg_word_vocab_size, hyperparams.data_trg_word_vocab_threshold,
+                hyperparams.model_representation_trg_word_embed_dim, hyperparams.data_trg_embed_file,
+                hyperparams.data_trg_embed_full_file, hyperparams.model_representation_trg_word_embed_pretrained,
+                hyperparams.data_trg_word_unk, hyperparams.data_trg_word_pad, hyperparams.model_representation_trg_word_feat_enable,
+                hyperparams.data_trg_char_vocab_file, hyperparams.data_trg_char_vocab_size, hyperparams.data_trg_char_vocab_threshold,
+                hyperparams.data_trg_char_unk, hyperparams.data_trg_char_pad, hyperparams.model_representation_trg_char_feat_enable)
+    else:
+        trg_word_embed_data = src_word_embed_data
+        trg_word_vocab_size = src_word_vocab_size
+        trg_word_vocab_index = src_word_vocab_index
+        trg_word_vocab_inverted_index = src_word_vocab_inverted_index
+        trg_char_vocab_size = src_char_vocab_size
+        trg_char_vocab_index = src_char_vocab_index
+        trg_char_vocab_inverted_index = src_char_vocab_inverted_index
+    
+    external_data = {}
+    if src_word_embed_data is not None and trg_word_embed_data is not None:
+        external_data["src_word_embed"] = src_word_embed_data
+        external_data["trg_word_embed"] = trg_word_embed_data
+    
+    logger.log_print("# create embedding data pipeline")
+    data_pipeline = create_embedding_pipeline(hyperparams.data_external_index_enable,
+        src_word_vocab_index, hyperparams.data_src_word_max_length, hyperparams.data_src_word_pad,
+        hyperparams.model_representation_src_word_feat_enable, src_char_vocab_index, hyperparams.data_src_char_max_length,
+        hyperparams.data_src_char_pad, hyperparams.model_representation_src_char_feat_enable,
+        trg_word_vocab_index, hyperparams.data_trg_word_max_length, hyperparams.data_trg_word_pad,
+        hyperparams.model_representation_trg_word_feat_enable, trg_char_vocab_index, hyperparams.data_trg_char_max_length,
+        hyperparams.data_trg_char_pad, hyperparams.model_representation_trg_char_feat_enable)
+
+    model_creator = get_model_creator(hyperparams.model_type)
+    model = model_creator(logger=logger, hyperparams=hyperparams, data_pipeline=data_pipeline,
+        external_data=external_data, mode="embedding", scope=hyperparams.model_scope)
+    
+    return EmbeddingModel(model=model, data_pipeline=data_pipeline)
 
 def get_model_creator(model_type):
     if model_type == "conv_enc":
