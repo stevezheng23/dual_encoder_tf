@@ -113,7 +113,7 @@ class AttentionEncoder(BaseModel):
                 """create train summary"""
                 self.train_summary = self._get_train_summary()
             
-            if self.mode == "online":
+            if self.mode == "similarity":
                 """create model builder"""
                 if not tf.gfile.Exists(self.hyperparams.train_model_output_dir):
                     tf.gfile.MakeDirs(self.hyperparams.train_model_output_dir)

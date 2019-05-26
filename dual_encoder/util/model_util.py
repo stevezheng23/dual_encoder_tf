@@ -8,8 +8,8 @@ from model.seq_enc import *
 from model.att_enc import *
 from util.data_util import *
 
-__all__ = ["TrainModel", "InferModel", "OnlineModel",
-           "create_train_model", "create_infer_model", "create_online_model",
+__all__ = ["TrainModel", "InferModel", "SimilarityModel",
+           "create_train_model", "create_infer_model", "create_similarity_model",
            "init_model", "load_model"]
 
 class TrainModel(collections.namedtuple("TrainModel",
@@ -22,7 +22,7 @@ class InferModel(collections.namedtuple("InferModel",
      "input_data", "input_src_data", "input_trg_data", "input_label_data"))):
     pass
 
-class OnlineModel(collections.namedtuple("OnlineModel", ("model", "data_pipeline"))):
+class SimilarityModel(collections.namedtuple("SimilarityModel", ("model", "data_pipeline"))):
     pass
 
 def create_train_model(logger,
@@ -219,10 +219,10 @@ def create_infer_model(logger,
             src_word_embed=src_word_embed_data, trg_word_embed=trg_word_embed_data, input_data=input_data,
             input_src_data=input_src_data, input_trg_data=input_trg_data, input_label_data=input_label_data)
 
-def create_online_model(logger,
-                        hyperparams):
-    logger.log_print("# prepare online data")
-    logger.log_print("# prepare online source data")
+def create_similarity_model(logger,
+                            hyperparams):
+    logger.log_print("# prepare similarity data")
+    logger.log_print("# prepare similarity source data")
     (src_word_embed_data, src_word_vocab_size, src_word_vocab_index, src_word_vocab_inverted_index,
         src_char_vocab_size, src_char_vocab_index, src_char_vocab_inverted_index) = prepare_data(logger, None,
             hyperparams.data_src_word_vocab_file, hyperparams.data_src_word_vocab_size, hyperparams.data_src_word_vocab_threshold,
@@ -232,7 +232,7 @@ def create_online_model(logger,
             hyperparams.data_src_char_vocab_file, hyperparams.data_src_char_vocab_size, hyperparams.data_src_char_vocab_threshold,
             hyperparams.data_src_char_unk, hyperparams.data_src_char_pad, hyperparams.model_representation_src_char_feat_enable)
     
-    logger.log_print("# prepare online target data")
+    logger.log_print("# prepare similarity target data")
     if hyperparams.data_share_vocab == False:
         (trg_word_embed_data, trg_word_vocab_size, trg_word_vocab_index, trg_word_vocab_inverted_index,
             trg_char_vocab_size, trg_char_vocab_index, trg_char_vocab_inverted_index) = prepare_data(logger, None,
@@ -256,8 +256,8 @@ def create_online_model(logger,
         external_data["src_word_embed"] = src_word_embed_data
         external_data["trg_word_embed"] = trg_word_embed_data
     
-    logger.log_print("# create online data pipeline")
-    data_pipeline = create_online_pipeline(hyperparams.data_external_index_enable,
+    logger.log_print("# create similarity data pipeline")
+    data_pipeline = create_similarity_pipeline(hyperparams.data_external_index_enable,
         src_word_vocab_index, hyperparams.data_src_word_max_length, hyperparams.data_src_word_pad,
         hyperparams.model_representation_src_word_feat_enable, src_char_vocab_index, hyperparams.data_src_char_max_length,
         hyperparams.data_src_char_pad, hyperparams.model_representation_src_char_feat_enable,
@@ -267,9 +267,9 @@ def create_online_model(logger,
 
     model_creator = get_model_creator(hyperparams.model_type)
     model = model_creator(logger=logger, hyperparams=hyperparams, data_pipeline=data_pipeline,
-        external_data=external_data, mode="online", scope=hyperparams.model_scope)
+        external_data=external_data, mode="similarity", scope=hyperparams.model_scope)
     
-    return OnlineModel(model=model, data_pipeline=data_pipeline)
+    return SimilarityModel(model=model, data_pipeline=data_pipeline)
 
 def get_model_creator(model_type):
     if model_type == "conv_enc":
