@@ -22,6 +22,7 @@ class DataPipeline(collections.namedtuple("DataPipeline",
     pass
 
 def create_embedding_pipeline(external_index_enable,
+                              embedding_type,
                               src_word_vocab_index,
                               src_word_max_length,
                               src_word_pad,
@@ -99,7 +100,6 @@ def create_embedding_pipeline(external_index_enable,
     input_data_placeholder = None
     input_word_placeholder = None
     input_char_placeholder = None
-    input_embed_type_placeholder = None
     input_word = None
     input_word_mask = None
     input_char = None
@@ -108,10 +108,9 @@ def create_embedding_pipeline(external_index_enable,
     if external_index_enable == True:
         input_word_placeholder = tf.placeholder(shape=[None, None], dtype=tf.int32)
         input_char_placeholder = tf.placeholder(shape=[None, None, None], dtype=tf.int32)
-        input_embed_type_placeholder = tf.placeholder(shape=[], dtype=tf.int32)
         
         (input_word, input_word_mask, input_char,
-            input_char_mask) = tf.cond(input_embed_type_placeholder == 0,
+            input_char_mask) = tf.cond(embedding_type == "source",
                 external_index_pipeline(input_word_placeholder, input_char_placeholder,
                     src_word_vocab_index, src_word_max_length, src_word_pad, src_word_feat_enable,
                     src_char_vocab_index, src_char_max_length, src_char_pad, src_char_feat_enable),
@@ -120,10 +119,9 @@ def create_embedding_pipeline(external_index_enable,
                     trg_char_vocab_index, trg_char_max_length, trg_char_pad, trg_char_feat_enable))
     else:
         input_data_placeholder = tf.placeholder(shape=[None], dtype=tf.string)
-        input_embed_type_placeholder = tf.placeholder(shape=[None], dtype=tf.string)
         
         (input_word, input_word_mask, input_char,
-            input_char_mask) = tf.cond(input_embed_type_placeholder == 0,
+            input_char_mask) = tf.cond(embedding_type == "source",
                 external_index_pipeline(input_word_placeholder, input_char_placeholder,
                     src_word_vocab_index, src_word_max_length, src_word_pad, src_word_feat_enable,
                     src_char_vocab_index, src_char_max_length, src_char_pad, src_char_feat_enable),
