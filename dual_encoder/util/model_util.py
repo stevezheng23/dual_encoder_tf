@@ -312,7 +312,7 @@ def create_embedding_model(logger,
         external_data["trg_word_embed"] = trg_word_embed_data
     
     logger.log_print("# create embedding data pipeline")
-    data_pipeline = create_embedding_pipeline(hyperparams.data_external_index_enable, "source",
+    data_pipeline = create_embedding_pipeline(hyperparams.data_external_index_enable,
         src_word_vocab_index, hyperparams.data_src_word_max_length, hyperparams.data_src_word_pad,
         hyperparams.model_representation_src_word_feat_enable, src_char_vocab_index, hyperparams.data_src_char_max_length,
         hyperparams.data_src_char_pad, hyperparams.model_representation_src_char_feat_enable,
