@@ -227,17 +227,17 @@ def export(logger,
         hyperparams.device_allow_soft_placement, hyperparams.device_allow_growth,
         hyperparams.device_per_process_gpu_memory_fraction)
     
-    logger.log_print("##### create online model #####")
-    online_model = create_online_model(logger, hyperparams)
-    online_sess = tf.Session(config=config_proto)
+    logger.log_print("##### create similarity model #####")
+    similarity_model = create_similarity_model(logger, hyperparams)
+    similarity_sess = tf.Session(config=config_proto)
     if enable_debug == True:
-        online_sess = tf_debug.LocalCLIDebugWrapperSession(online_sess)
+        similarity_sess = tf_debug.LocalCLIDebugWrapperSession(similarity_sess)
     
     logger.log_print("##### start exporting #####")
-    ckpt_file = online_model.model.get_latest_ckpt("epoch")
-    online_sess.run([tf.global_variables_initializer(), tf.tables_initializer()])
-    online_model.model.restore(online_sess, ckpt_file, "epoch")
-    online_model.model.build(online_sess)
+    ckpt_file = similarity_model.model.get_latest_ckpt("epoch")
+    similarity_sess.run([tf.global_variables_initializer(), tf.tables_initializer()])
+    similarity_model.model.restore(similarity_sess, ckpt_file, "epoch")
+    similarity_model.model.build(similarity_sess)
     logger.log_print("##### finish exporting #####")
 
 def main(args):

@@ -8,7 +8,7 @@ import tensorflow as tf
 
 from util.default_util import *
 
-__all__ = ["DataPipeline", "create_online_pipeline", "create_dynamic_pipeline", "create_data_pipeline",
+__all__ = ["DataPipeline", "create_similarity_pipeline", "create_dynamic_pipeline", "create_data_pipeline",
            "create_text_dataset", "create_label_dataset", "generate_word_feat", "generate_char_feat", "generate_num_feat",
            "create_embedding_file", "load_embedding_file", "convert_embedding",
            "create_vocab_file", "load_vocab_file", "process_vocab_table", "create_word_vocab", "create_char_vocab",
@@ -21,24 +21,24 @@ class DataPipeline(collections.namedtuple("DataPipeline",
      "input_trg_placeholder", "input_trg_word_placeholder", "input_trg_char_placeholder", "input_label_placeholder"))):
     pass
 
-def create_online_pipeline(external_index_enable,
-                           src_word_vocab_index,
-                           src_word_max_length,
-                           src_word_pad,
-                           src_word_feat_enable,
-                           src_char_vocab_index,
-                           src_char_max_length,
-                           src_char_pad,
-                           src_char_feat_enable,
-                           trg_word_vocab_index,
-                           trg_word_max_length,
-                           trg_word_pad,
-                           trg_word_feat_enable,
-                           trg_char_vocab_index,
-                           trg_char_max_length,
-                           trg_char_pad,
-                           trg_char_feat_enable):
-    """create online data pipeline for dual encoder"""
+def create_similarity_pipeline(external_index_enable,
+                               src_word_vocab_index,
+                               src_word_max_length,
+                               src_word_pad,
+                               src_word_feat_enable,
+                               src_char_vocab_index,
+                               src_char_max_length,
+                               src_char_pad,
+                               src_char_feat_enable,
+                               trg_word_vocab_index,
+                               trg_word_max_length,
+                               trg_word_pad,
+                               trg_word_feat_enable,
+                               trg_char_vocab_index,
+                               trg_char_max_length,
+                               trg_char_pad,
+                               trg_char_feat_enable):
+    """create similarity data pipeline for dual encoder"""
     input_src_placeholder = None
     input_src_word_placeholder = None
     input_src_char_placeholder = None
