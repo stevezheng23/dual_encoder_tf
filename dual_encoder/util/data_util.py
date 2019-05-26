@@ -39,7 +39,104 @@ def create_embedding_pipeline(external_index_enable,
                               trg_char_pad,
                               trg_char_feat_enable):
     """create embedding data pipeline for dual encoder"""
-    pass
+    def external_index_pipeline(input_word_placeholder,
+                                input_char_placeholder,
+                                word_vocab_index,
+                                word_max_length,
+                                word_pad,
+                                word_feat_enable,
+                                char_vocab_index,
+                                char_max_length,
+                                char_pad,
+                                char_feat_enable):
+        """external index pipeline"""
+        input_word = None
+        input_word_mask = None
+        input_char = None
+        input_char_mask = None
+
+        if word_feat_enable == True:
+            word_pad_id = tf.cast(word_vocab_index.lookup(tf.constant(word_pad)), dtype=tf.int32)
+            input_word = tf.expand_dims(input_word_placeholder[:,:word_max_length], axis=-1)
+            input_word_mask = tf.cast(tf.not_equal(input_word, word_pad_id), dtype=tf.float32)
+        
+        if char_feat_enable == True:
+            char_pad_id = tf.cast(char_vocab_index.lookup(tf.constant(char_pad)), dtype=tf.int32)
+            input_char = input_char_placeholder[:,:word_max_length,:char_max_length]
+            input_char_mask = tf.cast(tf.not_equal(input_char, char_pad_id), dtype=tf.float32)
+        
+        return input_word, input_word_mask, input_char, input_char_mask
+    
+    def internal_index_pipeline(input_data_placeholder,
+                                word_vocab_index,
+                                word_max_length,
+                                word_pad,
+                                word_feat_enable,
+                                char_vocab_index,
+                                char_max_length,
+                                char_pad,
+                                char_feat_enable):
+        """internal index pipeline"""
+        input_word = None
+        input_word_mask = None
+        input_char = None
+        input_char_mask = None
+        
+        if word_feat_enable == True:
+            word_pad_id = tf.cast(word_vocab_index.lookup(tf.constant(word_pad)), dtype=tf.int32)
+            input_word = tf.map_fn(lambda sent: generate_word_feat(sent,
+                word_vocab_index, word_max_length, word_pad), input_data_placeholder, dtype=tf.int32)
+            input_word_mask = tf.cast(tf.not_equal(input_word, word_pad_id), dtype=tf.float32)
+        
+        if char_feat_enable == True:
+            char_pad_id = tf.cast(char_vocab_index.lookup(tf.constant(char_pad)), dtype=tf.int32)
+            input_char = tf.map_fn(lambda sent: generate_char_feat(sent,
+                word_max_length, char_vocab_index, char_max_length, char_pad), input_data_placeholder, dtype=tf.int32)
+            input_char_mask = tf.cast(tf.not_equal(input_char, char_pad_id), dtype=tf.float32)
+        
+        return input_word, input_word_mask, input_char, input_char_mask
+    
+    input_data_placeholder = None
+    input_word_placeholder = None
+    input_char_placeholder = None
+    input_embed_type_placeholder = None
+    input_word = None
+    input_word_mask = None
+    input_char = None
+    input_char_mask = None
+    
+    if external_index_enable == True:
+        input_word_placeholder = tf.placeholder(shape=[None, None], dtype=tf.int32)
+        input_char_placeholder = tf.placeholder(shape=[None, None, None], dtype=tf.int32)
+        input_embed_type_placeholder = tf.placeholder(shape=[], dtype=tf.int32)
+        
+        (input_word, input_word_mask, input_char,
+            input_char_mask) = tf.cond(input_embed_type_placeholder == 0,
+                external_index_pipeline(input_word_placeholder, input_char_placeholder,
+                    src_word_vocab_index, src_word_max_length, src_word_pad, src_word_feat_enable,
+                    src_char_vocab_index, src_char_max_length, src_char_pad, src_char_feat_enable),
+                external_index_pipeline(input_word_placeholder, input_char_placeholder,
+                    trg_word_vocab_index, trg_word_max_length, trg_word_pad, trg_word_feat_enable,
+                    trg_char_vocab_index, trg_char_max_length, trg_char_pad, trg_char_feat_enable))
+    else:
+        input_data_placeholder = tf.placeholder(shape=[None], dtype=tf.string)
+        input_embed_type_placeholder = tf.placeholder(shape=[None], dtype=tf.string)
+        
+        (input_word, input_word_mask, input_char,
+            input_char_mask) = tf.cond(input_embed_type_placeholder == 0,
+                external_index_pipeline(input_word_placeholder, input_char_placeholder,
+                    src_word_vocab_index, src_word_max_length, src_word_pad, src_word_feat_enable,
+                    src_char_vocab_index, src_char_max_length, src_char_pad, src_char_feat_enable),
+                external_index_pipeline(input_word_placeholder, input_char_placeholder,
+                    trg_word_vocab_index, trg_word_max_length, trg_word_pad, trg_word_feat_enable,
+                    trg_char_vocab_index, trg_char_max_length, trg_char_pad, trg_char_feat_enable))
+    
+    return DataPipeline(initializer=None,
+        input_src_word=None, input_src_char=None, input_trg_word=None, input_trg_char=None, input_label=None,
+        input_src_word_mask=None, input_src_char_mask=None, input_trg_word_mask=None, input_trg_char_mask=None,
+        input_label_mask=None, batch_size=None, data_size_placeholder=None,
+        input_src_placeholder=None, input_src_word_placeholder=None, input_src_char_placeholder=None,
+        input_trg_placeholder=None, input_trg_word_placeholder=None, input_trg_char_placeholder=None, input_label_placeholder=None)
 
 def create_similarity_pipeline(external_index_enable,
                                src_word_vocab_index,
