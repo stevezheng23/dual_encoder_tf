@@ -15,10 +15,9 @@ __all__ = ["DataPipeline", "create_embedding_pipeline", "create_similarity_pipel
            "load_tsv_data", "load_json_data", "load_dual_data", "prepare_data", "prepare_dual_data"]
 
 class DataPipeline(collections.namedtuple("DataPipeline",
-    ("initializer", "input_word", "input_char", "input_src_word", "input_src_char", "input_trg_word", "input_trg_char", "input_label",
-     "input_word_mask", "input_char_mask", "input_src_word_mask", "input_src_char_mask", "input_trg_word_mask", "input_trg_char_mask",
-     "input_label_mask", "batch_size", "data_size_placeholder", "embed_type_placeholder",
-     "input_data_placeholder", "input_word_placeholder", "input_char_placeholder",
+    ("initializer", "input_src_word", "input_src_char", "input_trg_word", "input_trg_char", "input_label",
+     "input_src_word_mask", "input_src_char_mask", "input_trg_word_mask", "input_trg_char_mask", "input_label_mask",
+     "batch_size", "data_size_placeholder", "input_data_placeholder", "input_word_placeholder", "input_char_placeholder",
      "input_src_placeholder", "input_src_word_placeholder", "input_src_char_placeholder",
      "input_trg_placeholder", "input_trg_word_placeholder", "input_trg_char_placeholder", "input_label_placeholder"))):
     pass
@@ -108,37 +107,35 @@ def create_embedding_pipeline(external_index_enable,
     input_char_mask = None
     
     if external_index_enable == True:
-        embed_type_placeholder = tf.placeholder(shape=[], dtype=tf.int32)
         input_word_placeholder = tf.placeholder(shape=[None, None], dtype=tf.int32)
         input_char_placeholder = tf.placeholder(shape=[None, None, None], dtype=tf.int32)
         
-        (input_word, input_word_mask, input_char,
-            input_char_mask) = tf.cond(embed_type_placeholder == 0,
-                external_index_pipeline(input_word_placeholder, input_char_placeholder,
-                    src_word_vocab_index, src_word_max_length, src_word_pad, src_word_feat_enable,
-                    src_char_vocab_index, src_char_max_length, src_char_pad, src_char_feat_enable),
-                external_index_pipeline(input_word_placeholder, input_char_placeholder,
-                    trg_word_vocab_index, trg_word_max_length, trg_word_pad, trg_word_feat_enable,
-                    trg_char_vocab_index, trg_char_max_length, trg_char_pad, trg_char_feat_enable))
+        (input_src_word, input_src_word_mask, input_src_char,
+            input_src_char_mask) = external_index_pipeline(input_word_placeholder, input_char_placeholder,
+                src_word_vocab_index, src_word_max_length, src_word_pad, src_word_feat_enable,
+                src_char_vocab_index, src_char_max_length, src_char_pad, src_char_feat_enable)
+        (input_trg_word, input_trg_word_mask, input_trg_char,
+            input_trg_char_mask) = external_index_pipeline(input_word_placeholder, input_char_placeholder,
+                trg_word_vocab_index, trg_word_max_length, trg_word_pad, trg_word_feat_enable,
+                trg_char_vocab_index, trg_char_max_length, trg_char_pad, trg_char_feat_enable)
     else:
-        embed_type_placeholder = tf.placeholder(shape=[None], dtype=tf.string)
         input_data_placeholder = tf.placeholder(shape=[None], dtype=tf.string)
         
-        (input_word, input_word_mask, input_char,
-            input_char_mask) = tf.cond(embed_type_placeholder == "source",
-                external_index_pipeline(input_word_placeholder, input_char_placeholder,
-                    src_word_vocab_index, src_word_max_length, src_word_pad, src_word_feat_enable,
-                    src_char_vocab_index, src_char_max_length, src_char_pad, src_char_feat_enable),
-                external_index_pipeline(input_word_placeholder, input_char_placeholder,
+        (input_src_word, input_src_word_mask, input_src_char,
+            input_src_char_mask) = internal_index_pipeline(input_data_placeholder,
+                src_word_vocab_index, src_word_max_length, src_word_pad, src_word_feat_enable,
+                src_char_vocab_index, src_char_max_length, src_char_pad, src_char_feat_enable)
+        (input_trg_word, input_trg_word_mask, input_trg_char,
+            input_trg_char_mask) = internal_index_pipeline(input_data_placeholder,
                     trg_word_vocab_index, trg_word_max_length, trg_word_pad, trg_word_feat_enable,
-                    trg_char_vocab_index, trg_char_max_length, trg_char_pad, trg_char_feat_enable))
+                    trg_char_vocab_index, trg_char_max_length, trg_char_pad, trg_char_feat_enable)
     
-    return DataPipeline(initializer=None, input_word=input_word, input_char=input_char,
-        input_src_word=None, input_src_char=None, input_trg_word=None, input_trg_char=None,
-        input_label=None, input_word_mask=input_word_mask, input_char_mask=input_char_mask,
-        input_src_word_mask=None, input_src_char_mask=None, input_trg_word_mask=None, input_trg_char_mask=None,
-        input_label_mask=None, batch_size=None, data_size_placeholder=None,
-        embed_type_placeholder=embed_type_placeholder, input_data_placeholder=input_data_placeholder,
+    return DataPipeline(initializer=None,
+        input_src_word=input_src_word, input_src_char=input_src_char,
+        input_trg_word=input_trg_word, input_trg_char=input_trg_char, input_label=None,
+        input_src_word_mask=input_src_word_mask, input_src_char_mask=input_src_char_mask,
+        input_trg_word_mask=input_trg_word_mask, input_trg_char_mask=input_trg_char_mask, input_label_mask=None,
+        batch_size=None, data_size_placeholder=None, input_data_placeholder=input_data_placeholder,
         input_word_placeholder=input_word_placeholder, input_char_placeholder=input_char_placeholder,
         input_src_placeholder=None, input_src_word_placeholder=None, input_src_char_placeholder=None,
         input_trg_placeholder=None, input_trg_word_placeholder=None, input_trg_char_placeholder=None, input_label_placeholder=None)
@@ -229,14 +226,13 @@ def create_similarity_pipeline(external_index_enable,
                 trg_word_max_length, trg_char_vocab_index, trg_char_max_length, trg_char_pad), input_trg_placeholder, dtype=tf.int32)
             input_trg_char_mask = tf.cast(tf.not_equal(input_trg_char, trg_char_pad_id), dtype=tf.float32)
     
-    return DataPipeline(initializer=None, input_word=None, input_char=None,
+    return DataPipeline(initializer=None,
         input_src_word=input_src_word, input_src_char=input_src_char,
-        input_trg_word=input_trg_word, input_trg_char=input_trg_char,
-        input_label=None, input_word_mask=None, input_char_mask=None,
+        input_trg_word=input_trg_word, input_trg_char=input_trg_char, input_label=None,
         input_src_word_mask=input_src_word_mask, input_src_char_mask=input_src_char_mask,
-        input_trg_word_mask=input_trg_word_mask, input_trg_char_mask=input_trg_char_mask,
-        input_label_mask=None, batch_size=None, data_size_placeholder=None, embed_type_placeholder=None,
-        input_data_placeholder=None, input_word_placeholder=None, input_char_placeholder=None,
+        input_trg_word_mask=input_trg_word_mask, input_trg_char_mask=input_trg_char_mask, input_label_mask=None,
+        batch_size=None, data_size_placeholder=None, input_data_placeholder=None,
+        input_word_placeholder=None, input_char_placeholder=None,
         input_src_placeholder=input_src_placeholder, input_src_word_placeholder=input_src_word_placeholder,
         input_src_char_placeholder=input_src_char_placeholder,
         input_trg_placeholder=input_trg_placeholder, input_trg_word_placeholder=input_trg_word_placeholder,
@@ -339,14 +335,13 @@ def create_dynamic_pipeline(input_src_word_dataset,
     input_label = tf.cast(batch_data[4], dtype=tf.float32)
     input_label_mask = tf.cast(tf.greater_equal(batch_data[4], label_pad_id), dtype=tf.float32)
     
-    return DataPipeline(initializer=iterator.initializer, input_word=None, input_char=None,
+    return DataPipeline(initializer=iterator.initializer,
         input_src_word=input_src_word, input_src_char=input_src_char,
-        input_trg_word=input_trg_word, input_trg_char=input_trg_char,
-        input_label=input_label, input_word_mask=None, input_char_mask=None,
+        input_trg_word=input_trg_word, input_trg_char=input_trg_char, input_label=input_label,
         input_src_word_mask=input_src_word_mask, input_src_char_mask=input_src_char_mask,
-        input_trg_word_mask=input_trg_word_mask, input_trg_char_mask=input_trg_char_mask,
-        input_label_mask=input_label_mask, batch_size=batch_size, data_size_placeholder=data_size_placeholder,
-        embed_type_placeholder=None, input_data_placeholder=None, input_word_placeholder=None, input_char_placeholder=None,
+        input_trg_word_mask=input_trg_word_mask, input_trg_char_mask=input_trg_char_mask, input_label_mask=input_label_mask,
+        batch_size=batch_size, data_size_placeholder=data_size_placeholder,
+        input_data_placeholder=None, input_word_placeholder=None, input_char_placeholder=None,
         input_src_placeholder=input_src_placeholder, input_src_word_placeholder=None, input_src_char_placeholder=None,
         input_trg_placeholder=input_trg_placeholder, input_trg_word_placeholder=None, input_trg_char_placeholder=None,
         input_label_placeholder=input_label_placeholder)
@@ -445,14 +440,13 @@ def create_data_pipeline(input_src_word_dataset,
     input_label = tf.cast(batch_data[4], dtype=tf.float32)
     input_label_mask = tf.cast(tf.greater_equal(batch_data[4], label_pad_id), dtype=tf.float32)
     
-    return DataPipeline(initializer=iterator.initializer, input_word=None, input_char=None,
+    return DataPipeline(initializer=iterator.initializer,
         input_src_word=input_src_word, input_src_char=input_src_char,
-        input_trg_word=input_trg_word, input_trg_char=input_trg_char,
-        input_label=input_label, input_word_mask=None, input_char_mask=None,
+        input_trg_word=input_trg_word, input_trg_char=input_trg_char, input_label=input_label,
         input_src_word_mask=input_src_word_mask, input_src_char_mask=input_src_char_mask,
-        input_trg_word_mask=input_trg_word_mask, input_trg_char_mask=input_trg_char_mask,
-        input_label_mask=input_label_mask, batch_size=batch_size, data_size_placeholder=None, embed_type_placeholder=None,
-        input_data_placeholder=None, input_word_placeholder=None, input_char_placeholder=None,
+        input_trg_word_mask=input_trg_word_mask, input_trg_char_mask=input_trg_char_mask, input_label_mask=input_label_mask,
+        batch_size=batch_size, data_size_placeholder=None, input_data_placeholder=None,
+        input_word_placeholder=None, input_char_placeholder=None,
         input_src_placeholder=None, input_src_word_placeholder=None, input_src_char_placeholder=None,
         input_trg_placeholder=None, input_trg_word_placeholder=None, input_trg_char_placeholder=None, input_label_placeholder=None)
     
