@@ -220,9 +220,9 @@ def evaluate(logger,
     infer_summary_writer.close_writer()
     logger.log_print("##### finish evaluation #####")
 
-def export(logger,
-           hyperparams,
-           enable_debug=False):   
+def similarity(logger,
+               hyperparams,
+               enable_debug=False):   
     config_proto = get_config_proto(hyperparams.device_log_device_placement,
         hyperparams.device_allow_soft_placement, hyperparams.device_allow_growth,
         hyperparams.device_per_process_gpu_memory_fraction)
@@ -237,7 +237,27 @@ def export(logger,
     ckpt_file = similarity_model.model.get_latest_ckpt("epoch")
     similarity_sess.run([tf.global_variables_initializer(), tf.tables_initializer()])
     similarity_model.model.restore(similarity_sess, ckpt_file, "epoch")
-    similarity_model.model.build(similarity_sess)
+    similarity_model.model.export(similarity_sess)
+    logger.log_print("##### finish exporting #####")
+
+def embedding(logger,
+              hyperparams,
+              enable_debug=False):   
+    config_proto = get_config_proto(hyperparams.device_log_device_placement,
+        hyperparams.device_allow_soft_placement, hyperparams.device_allow_growth,
+        hyperparams.device_per_process_gpu_memory_fraction)
+    
+    logger.log_print("##### create embedding model #####")
+    embedding_model = create_embedding_model(logger, hyperparams)
+    embedding_sess = tf.Session(config=config_proto)
+    if enable_debug == True:
+        embedding_sess = tf_debug.LocalCLIDebugWrapperSession(embedding_sess)
+    
+    logger.log_print("##### start exporting #####")
+    ckpt_file = embedding_model.model.get_latest_ckpt("epoch")
+    embedding_sess.run([tf.global_variables_initializer(), tf.tables_initializer()])
+    embedding_model.model.restore(embedding_sess, ckpt_file, "epoch")
+    embedding_model.model.export(embedding_sess)
     logger.log_print("##### finish exporting #####")
 
 def main(args):
@@ -257,10 +277,14 @@ def main(args):
         evaluate(logger, hyperparams, enable_debug=False)
     elif (args.mode == 'eval_debug'):
         evaluate(logger, hyperparams, enable_debug=True)
-    elif (args.mode == 'export'):
-        export(logger, hyperparams, enable_debug=False)
-    elif (args.mode == 'export_debug'):
-        export(logger, hyperparams, enable_debug=True)
+    elif (args.mode == 'similarity'):
+        similarity(logger, hyperparams, enable_debug=False)
+    elif (args.mode == 'similarity_debug'):
+        similarity(logger, hyperparams, enable_debug=True)
+    elif (args.mode == 'embedding'):
+        embedding(logger, hyperparams, enable_debug=False)
+    elif (args.mode == 'embedding_debug'):
+        embedding(logger, hyperparams, enable_debug=True)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

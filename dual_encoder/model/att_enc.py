@@ -52,12 +52,23 @@ class AttentionEncoder(BaseModel):
             
             """build graph for attention encoder"""
             self.logger.log_print("# build graph")
-            predict, predict_mask = self._build_graph(input_src_word, input_src_word_mask, input_src_char,
-                input_src_char_mask, input_trg_word, input_trg_word_mask, input_trg_char, input_trg_char_mask)
+            (predict, predict_mask, src_embed, src_embed_mask, trg_embed,
+                trg_embed_mask) = self._build_graph(input_src_word, input_src_word_mask, input_src_char,
+                    input_src_char_mask, input_trg_word, input_trg_word_mask, input_trg_char, input_trg_char_mask)
+            
             self.predict = predict
             self.predict_mask = predict_mask
+            self.src_embed = src_embed
+            self.src_embed_mask = src_embed_mask
+            self.trg_embed = trg_embed
+            self.trg_embed_mask = trg_embed_mask
+            
             self.output_predict = tf.nn.sigmoid(self.predict)
             self.output_predict_mask = self.predict_mask
+            self.output_src_embed = self.src_embed
+            self.output_src_embed_mask = self.src_embed_mask
+            self.output_trg_embed = self.trg_embed
+            self.output_trg_embed_mask = self.trg_embed_mask
             
             self.variable_list = tf.global_variables()
             self.variable_lookup = {v.op.name: v for v in self.variable_list}
@@ -113,12 +124,12 @@ class AttentionEncoder(BaseModel):
                 """create train summary"""
                 self.train_summary = self._get_train_summary()
             
-            if self.mode == "similarity":
+            if self.mode in ["similarity", "embedding"]:
                 """create model builder"""
                 if not tf.gfile.Exists(self.hyperparams.train_model_output_dir):
                     tf.gfile.MakeDirs(self.hyperparams.train_model_output_dir)
                 
-                model_version = "{0}.{1}".format(self.hyperparams.train_model_version, time.time())
+                model_version = "{0}.{1}.{2}".format(self.mode, self.hyperparams.train_model_version, time.time())
                 self.model_dir = os.path.join(self.hyperparams.train_model_output_dir, model_version)
                 self.model_builder = tf.saved_model.builder.SavedModelBuilder(self.model_dir)
             
@@ -552,46 +563,82 @@ class AttentionEncoder(BaseModel):
             
             predict = input_matching
             predict_mask = input_matching_mask
+            src_embed = input_src_interaction
+            src_embed_mask = input_src_interaction_mask
+            trg_embed = input_trg_interaction
+            trg_embed_mask = input_trg_interaction_mask
             
-        return predict, predict_mask
+        return predict, predict_mask, src_embed, src_embed_mask, trg_embed, trg_embed_mask
     
-    def build(self,
-              sess):
-        """build saved model for attention encoder model"""
+    def export(self,
+               sess):
+        """export saved model for attention encoder model"""
         external_index_enable = self.hyperparams.data_external_index_enable
         
-        if external_index_enable == True:
-            input_src_word = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_src_word_placeholder)
-            input_src_char = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_src_char_placeholder)
-            input_trg_word = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_trg_word_placeholder)
-            input_trg_char = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_trg_char_placeholder)
-            output_predict = tf.saved_model.utils.build_tensor_info(self.output_predict)
+        if self.mode == "similarity":
+            if external_index_enable == True:
+                input_src_word = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_src_word_placeholder)
+                input_src_char = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_src_char_placeholder)
+                input_trg_word = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_trg_word_placeholder)
+                input_trg_char = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_trg_char_placeholder)
+                output_predict = tf.saved_model.utils.build_tensor_info(self.output_predict)
 
-            predict_signature = (tf.saved_model.signature_def_utils.build_signature_def(
-                inputs={
-                    'input_src_word': input_src_word,
-                    'input_src_char': input_src_char,
-                    'input_trg_word': input_trg_word,
-                    'input_trg_char': input_trg_char
-                },
-                outputs={
-                    'output_predict': output_predict
-                },
-                method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME))
-        else:
-            input_src = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_src_placeholder)
-            input_trg = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_trg_placeholder)
-            output_predict = tf.saved_model.utils.build_tensor_info(self.output_predict)
+                predict_signature = (tf.saved_model.signature_def_utils.build_signature_def(
+                    inputs={
+                        'input_src_word': input_src_word,
+                        'input_src_char': input_src_char,
+                        'input_trg_word': input_trg_word,
+                        'input_trg_char': input_trg_char
+                    },
+                    outputs={
+                        'output_predict': output_predict
+                    },
+                    method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME))
+            else:
+                input_src = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_src_placeholder)
+                input_trg = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_trg_placeholder)
+                output_predict = tf.saved_model.utils.build_tensor_info(self.output_predict)
 
-            predict_signature = (tf.saved_model.signature_def_utils.build_signature_def(
-                inputs={
-                    'input_src': input_src,
-                    'input_trg': input_trg
-                },
-                outputs={
-                    'output_predict': output_predict
-                },
-                method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME))
+                predict_signature = (tf.saved_model.signature_def_utils.build_signature_def(
+                    inputs={
+                        'input_src': input_src,
+                        'input_trg': input_trg
+                    },
+                    outputs={
+                        'output_predict': output_predict
+                    },
+                    method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME))
+        elif self.mode == "embedding":
+            if external_index_enable == True:
+                input_word = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_word_placeholder)
+                input_char = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_char_placeholder)
+                output_src_embed = tf.saved_model.utils.build_tensor_info(self.output_src_embed)
+                output_trg_embed = tf.saved_model.utils.build_tensor_info(self.output_trg_embed)
+
+                predict_signature = (tf.saved_model.signature_def_utils.build_signature_def(
+                    inputs={
+                        'input_word': input_word,
+                        'input_char': input_char
+                    },
+                    outputs={
+                        'output_src_embed': output_src_embed,
+                        'output_trg_embed': output_trg_embed
+                    },
+                    method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME))
+            else:
+                input_data = tf.saved_model.utils.build_tensor_info(self.data_pipeline.input_data_placeholder)
+                output_src_embed = tf.saved_model.utils.build_tensor_info(self.output_src_embed)
+                output_trg_embed = tf.saved_model.utils.build_tensor_info(self.output_trg_embed)
+
+                predict_signature = (tf.saved_model.signature_def_utils.build_signature_def(
+                    inputs={
+                        'input_data': input_data
+                    },
+                    outputs={
+                        'output_src_embed': output_src_embed,
+                        'output_trg_embed': output_trg_embed
+                    },
+                    method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME))
         
         self.model_builder.add_meta_graph_and_variables(
             sess, [tf.saved_model.tag_constants.SERVING],
