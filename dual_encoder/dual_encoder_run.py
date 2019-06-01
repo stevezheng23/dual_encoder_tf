@@ -229,30 +229,21 @@ def export(logger,
     
     if hyperparams.train_model_export_type == "similarity":
         logger.log_print("##### create similarity model #####")
-        similarity_model = create_similarity_model(logger, hyperparams)
-        similarity_sess = tf.Session(config=config_proto)
-        if enable_debug == True:
-            similarity_sess = tf_debug.LocalCLIDebugWrapperSession(similarity_sess)
-
-        logger.log_print("##### start exporting #####")
-        ckpt_file = similarity_model.model.get_latest_ckpt("epoch")
-        similarity_sess.run([tf.global_variables_initializer(), tf.tables_initializer()])
-        similarity_model.model.restore(similarity_sess, ckpt_file, "epoch")
-        similarity_model.model.export(similarity_sess)
-        logger.log_print("##### finish exporting #####")
+        online_model = create_similarity_model(logger, hyperparams)
     elif hyperparams.train_model_export_type == "embedding":
         logger.log_print("##### create embedding model #####")
-        embedding_model = create_embedding_model(logger, hyperparams)
-        embedding_sess = tf.Session(config=config_proto)
-        if enable_debug == True:
-            embedding_sess = tf_debug.LocalCLIDebugWrapperSession(embedding_sess)
+        online_model = create_embedding_model(logger, hyperparams)
+    
+    online_sess = tf.Session(config=config_proto)
+    if enable_debug == True:
+        online_sess = tf_debug.LocalCLIDebugWrapperSession(online_sess)
 
-        logger.log_print("##### start exporting #####")
-        ckpt_file = embedding_model.model.get_latest_ckpt("epoch")
-        embedding_sess.run([tf.global_variables_initializer(), tf.tables_initializer()])
-        embedding_model.model.restore(embedding_sess, ckpt_file, "epoch")
-        embedding_model.model.export(embedding_sess)
-        logger.log_print("##### finish exporting #####")
+    logger.log_print("##### start exporting #####")
+    ckpt_file = online_model.model.get_latest_ckpt("epoch")
+    online_sess.run([tf.global_variables_initializer(), tf.tables_initializer()])
+    online_model.model.restore(online_sess, ckpt_file, "epoch")
+    online_model.model.export(online_sess)
+    logger.log_print("##### finish exporting #####")
 
 def main(args):
     hyperparams = load_hyperparams(args.config)
