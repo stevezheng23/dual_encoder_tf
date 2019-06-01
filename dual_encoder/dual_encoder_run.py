@@ -240,7 +240,7 @@ def export(logger,
         similarity_model.model.restore(similarity_sess, ckpt_file, "epoch")
         similarity_model.model.export(similarity_sess)
         logger.log_print("##### finish exporting #####")
-    elif hyperparams.train_model_export_type == "similarity":
+    elif hyperparams.train_model_export_type == "embedding":
         logger.log_print("##### create embedding model #####")
         embedding_model = create_embedding_model(logger, hyperparams)
         embedding_sess = tf.Session(config=config_proto)
