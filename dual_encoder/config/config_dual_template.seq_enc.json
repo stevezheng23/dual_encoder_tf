@@ -46,6 +46,7 @@
     "train_eval_metric": ["cp_auc@1", "precision@1"],
     "train_eval_detail_type": "full",
     "train_num_epoch": 3,
+    "train_model_export_type": "embedding",
     "train_model_version": "0.0.1",
     "train_model_output_dir": "output/seq_enc/model",
     "train_ckpt_output_dir": "output/seq_enc/checkpoint",
